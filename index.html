@@ -6,7 +6,7 @@
     <title>MPLEÃO - Gestão de Pedidos</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
-        // Script simples apenas para alternar as abas no protótipo visual
+        // Alternar abas
         function mostrarAba(abaId) {
             document.getElementById('aba-cadastro').classList.add('hidden');
             document.getElementById('aba-logistica').classList.add('hidden');
@@ -16,9 +16,52 @@
             document.getElementById('btn-logistica').classList.remove('bg-gray-700');
             document.getElementById('btn-' + abaId.split('-')[1]).classList.add('bg-gray-700');
         }
+
+        // Adicionar nova linha na tabela
+        function adicionarLinha() {
+            const tbody = document.getElementById('tabela-itens');
+            const novaLinha = document.createElement('tr');
+            novaLinha.className = 'text-sm';
+            novaLinha.innerHTML = `
+                <td class="p-2 border"><input type="number" value="1" min="1" class="w-16 p-1 border rounded qtd-item" onchange="calcularTotal()"></td>
+                <td class="p-2 border"><input type="text" placeholder="Nome do produto" class="w-full p-1 border rounded"></td>
+                <td class="p-2 border">
+                    <select class="w-full p-1 border rounded">
+                        <option>Selecione...</option>
+                        <option>Alumínios Brás</option>
+                        <option>Vidraçaria Central</option>
+                    </select>
+                </td>
+                <td class="p-2 border"><input type="number" value="0.00" class="w-24 p-1 border rounded valor-item" onchange="calcularTotal()"></td>
+                <td class="p-2 border font-semibold total-linha">R$ 0,00</td>
+            `;
+            tbody.insertBefore(novaLinha, document.getElementById('linha-adicionar'));
+        }
+
+        // Calcular totais dinamicamente
+        function calcularTotal() {
+            const linhas = document.querySelectorAll('#tabela-itens tr:not(#linha-adicionar)');
+            let subtotal = 0;
+
+            linhas.forEach(linha => {
+                const qtd = linha.querySelector('.qtd-item')?.value || 0;
+                const valor = linha.querySelector('.valor-item')?.value || 0;
+                const totalLinha = qtd * valor;
+                
+                if(linha.querySelector('.total-linha')) {
+                    linha.querySelector('.total-linha').innerText = 'R$ ' + totalLinha.toFixed(2).replace('.', ',');
+                }
+                subtotal += totalLinha;
+            });
+
+            // Atualiza os painéis de totais no final da página
+            const frete = 35.00; // Frete fixo para simulação
+            document.getElementById('display-subtotal').innerText = 'Subtotal: R$ ' + subtotal.toFixed(2).replace('.', ',');
+            document.getElementById('display-total').innerText = 'Total: R$ ' + (subtotal + frete).toFixed(2).replace('.', ',');
+        }
     </script>
 </head>
-<body class="bg-gray-100 flex h-screen overflow-hidden">
+<body class="bg-gray-100 flex h-screen overflow-hidden" onload="calcularTotal()">
 
     <aside class="w-64 bg-gray-900 text-white flex flex-col">
         <div class="p-6 text-center border-b border-gray-700">
@@ -32,9 +75,6 @@
             <button id="btn-logistica" onclick="mostrarAba('aba-logistica')" class="w-full text-left p-3 rounded hover:bg-gray-600 transition">
                 🚚 Logística e Romaneio
             </button>
-            <button class="w-full text-left p-3 rounded text-gray-500 cursor-not-allowed">
-                💰 Financeiro (Em breve)
-            </button>
         </nav>
     </aside>
 
@@ -44,44 +84,9 @@
             <h2 class="text-3xl font-bold text-gray-800 border-b pb-2">Novo Pedido</h2>
             
             <div class="grid grid-cols-2 gap-6">
-                <div class="bg-white p-6 rounded-lg shadow-sm">
-                    <h3 class="text-lg font-semibold mb-4 text-gray-700">Dados do Cliente</h3>
-                    <div class="space-y-3">
-                        <input type="text" placeholder="Nome do Cliente (Busca automática)" class="w-full p-2 border rounded bg-gray-50">
-                        <div class="flex gap-2">
-                            <input type="text" placeholder="CEP" class="w-1/3 p-2 border rounded bg-gray-50">
-                            <input type="text" placeholder="Endereço Completo" class="w-2/3 p-2 border rounded bg-gray-50" readonly>
-                        </div>
-                        <div class="flex gap-2 items-center">
-                            <input type="text" placeholder="Valor do Frete Estimado" class="w-1/2 p-2 border rounded bg-yellow-50 text-yellow-900" readonly>
-                            <span class="text-xs text-gray-500">*Calculado via distância</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="bg-white p-6 rounded-lg shadow-sm">
-                    <h3 class="text-lg font-semibold mb-4 text-gray-700">Controle do Pedido</h3>
-                    <div class="space-y-3">
-                        <select class="w-full p-2 border rounded bg-gray-50">
-                            <option>Status: Orçamento</option>
-                            <option>Status: Produção</option>
-                            <option>Status: Estoque / A Retirar</option>
-                            <option>Status: Entregue</option>
-                        </select>
-                        <div class="flex gap-2">
-                            <div class="w-1/2">
-                                <label class="text-xs text-gray-500">Previsão de Entrega</label>
-                                <input type="date" class="w-full p-2 border rounded bg-gray-50">
-                            </div>
-                            <div class="w-1/2">
-                                <label class="text-xs text-gray-500">Status Financeiro</label>
-                                <select class="w-full p-2 border rounded bg-gray-50">
-                                    <option>A Receber</option>
-                                    <option>Pago</option>
-                                </select>
-                            </div>
-                        </div>
-                    </div>
+                <div class="bg-white p-6 rounded-lg shadow-sm col-span-2">
+                    <h3 class="text-lg font-semibold mb-4 text-gray-700">Dados Gerais (Simulação)</h3>
+                    <p class="text-sm text-gray-500">Preencha a tabela abaixo para ver o cálculo dinâmico.</p>
                 </div>
             </div>
 
@@ -91,86 +96,50 @@
                     <thead>
                         <tr class="bg-gray-100 text-gray-600 text-sm">
                             <th class="p-2 border">Qtd</th>
-                            <th class="p-2 border">Produto (Busca Tabela)</th>
+                            <th class="p-2 border">Produto</th>
                             <th class="p-2 border">Fornecedor</th>
-                            <th class="p-2 border">Valor Unit.</th>
+                            <th class="p-2 border">Valor Unit. (R$)</th>
                             <th class="p-2 border">Total</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody id="tabela-itens">
                         <tr class="text-sm">
-                            <td class="p-2 border"><input type="number" value="2" class="w-16 p-1 border rounded"></td>
-                            <td class="p-2 border">Veneziana 6f quadricula 150x100 R14</td>
+                            <td class="p-2 border"><input type="number" value="2" min="1" class="w-16 p-1 border rounded qtd-item" onchange="calcularTotal()"></td>
+                            <td class="p-2 border"><input type="text" value="Veneziana 6f quadricula" class="w-full p-1 border rounded"></td>
                             <td class="p-2 border">
                                 <select class="w-full p-1 border rounded">
-                                    <option>Alumínios Brás</option>
-                                    <option>Vidraçaria Central</option>
+                                    <option selected>Alumínios Brás</option>
                                 </select>
                             </td>
-                            <td class="p-2 border">R$ 551,25</td>
-                            <td class="p-2 border font-semibold">R$ 1.102,50</td>
+                            <td class="p-2 border"><input type="number" value="551.25" class="w-24 p-1 border rounded valor-item" onchange="calcularTotal()"></td>
+                            <td class="p-2 border font-semibold total-linha">R$ 0,00</td>
                         </tr>
-                        <tr class="text-sm">
-                            <td class="p-2 border" colspan="5"><button class="text-blue-600 hover:underline">+ Adicionar Item</button></td>
+                        
+                        <tr class="text-sm" id="linha-adicionar">
+                            <td class="p-2 border bg-gray-50 text-center" colspan="5">
+                                <button onclick="adicionarLinha()" class="text-blue-600 font-semibold hover:underline w-full py-2">+ Adicionar Novo Item</button>
+                            </td>
                         </tr>
                     </tbody>
                 </table>
             </div>
 
             <div class="bg-white p-6 rounded-lg shadow-sm flex justify-between items-start">
-                <div class="w-1/2 space-y-3 pr-4">
-                    <h3 class="text-lg font-semibold text-gray-700">Condição de Pagamento</h3>
-                    <select class="w-full p-2 border rounded bg-gray-50">
-                        <option>Pix</option>
-                        <option>Cartão de Crédito</option>
-                        <option>Boleto</option>
-                    </select>
-                    <div class="flex gap-2 items-center">
-                        <input type="number" placeholder="Nº Parcelas" class="w-1/3 p-2 border rounded bg-gray-50">
-                        <span class="text-sm text-gray-500">Taxa Maquininha: R$ 0,00 (Auto)</span>
-                    </div>
-                </div>
+                <div class="w-1/2"></div>
                 <div class="w-1/3 bg-gray-50 p-4 rounded border text-right">
-                    <p class="text-gray-500">Subtotal: R$ 1.102,50</p>
-                    <p class="text-gray-500">Frete: R$ 35,00</p>
-                    <p class="text-2xl font-bold text-gray-800 mt-2">Total: R$ 1.137,50</p>
-                    <button class="mt-4 w-full bg-green-600 text-white font-bold py-2 rounded hover:bg-green-700">Salvar Pedido</button>
+                    <p class="text-gray-500" id="display-subtotal">Subtotal: R$ 0,00</p>
+                    <p class="text-gray-500">Frete Fixo: R$ 35,00</p>
+                    <p class="text-2xl font-bold text-gray-800 mt-2" id="display-total">Total: R$ 0,00</p>
+                    <button class="mt-4 w-full bg-green-600 text-white font-bold py-2 rounded hover:bg-green-700" onclick="alert('Pedido salvo no protótipo!')">Salvar Pedido</button>
                 </div>
             </div>
         </div>
 
         <div id="aba-logistica" class="hidden space-y-6">
-            <h2 class="text-3xl font-bold text-gray-800 border-b pb-2">Gestão de Logística</h2>
-            
-            <div class="bg-white p-6 rounded-lg shadow-sm flex gap-4 items-end">
-                <div class="w-1/4">
-                    <label class="text-xs text-gray-500">Filtrar por Cidade</label>
-                    <input type="text" placeholder="Ex: Bady Bassitt" class="w-full p-2 border rounded">
-                </div>
-                <div class="w-1/4">
-                    <label class="text-xs text-gray-500">Status</label>
-                    <select class="w-full p-2 border rounded">
-                        <option>A Retirar / Estoque</option>
-                        <option>Produção</option>
-                    </select>
-                </div>
-                <div class="w-1/4">
-                    <label class="text-xs text-gray-500">Previsão até</label>
-                    <input type="date" class="w-full p-2 border rounded">
-                </div>
-                <div class="w-1/4">
-                    <button class="w-full bg-blue-600 text-white font-bold py-2 rounded hover:bg-blue-700">Filtrar Pedidos</button>
-                </div>
-            </div>
+             <h2 class="text-3xl font-bold text-gray-800 border-b pb-2">Gestão de Logística</h2>
+             <p class="text-gray-600">Interface de filtros e romaneio de entrega.</p>
+        </div>
 
-            <div class="bg-white p-6 rounded-lg shadow-sm">
-                <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-lg font-semibold text-gray-700">Montar Romaneio de Entrega</h3>
-                    <div class="text-sm bg-yellow-100 text-yellow-800 px-3 py-1 rounded">
-                        Teto de Frete da Rota: <span class="font-bold">R$ 150,00</span>
-                    </div>
-                </div>
-                
-                <table class="w-full text-left border-collapse">
-                    <thead>
-                        <tr class="bg-gray-100 text-gray-600 text-
+    </main>
+</body>
+</html>
