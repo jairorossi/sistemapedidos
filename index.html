@@ -6,7 +6,7 @@
     <title>MPLEÃO - Gestão de Pedidos</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
-        // Script simples apenas para alternar as abas no protótipo visual
+        // Alternar abas
         function mostrarAba(abaId) {
             document.getElementById('aba-cadastro').classList.add('hidden');
             document.getElementById('aba-logistica').classList.add('hidden');
@@ -16,9 +16,94 @@
             document.getElementById('btn-logistica').classList.remove('bg-gray-700');
             document.getElementById('btn-' + abaId.split('-')[1]).classList.add('bg-gray-700');
         }
+
+        // Adicionar nova linha na tabela
+        function adicionarLinha() {
+            const tbody = document.getElementById('tabela-itens');
+            const novaLinha = document.createElement('tr');
+            novaLinha.className = 'text-sm';
+            novaLinha.innerHTML = `
+                <td class="p-2 border"><input type="number" value="1" min="1" class="w-16 p-1 border rounded qtd-item" onchange="calcularTudo()"></td>
+                <td class="p-2 border"><input type="text" placeholder="Nome do produto" class="w-full p-1 border rounded"></td>
+                <td class="p-2 border">
+                    <select class="w-full p-1 border rounded">
+                        <option>Selecione...</option>
+                        <option>Alumínios Brás</option>
+                        <option>Vidraçaria Central</option>
+                    </select>
+                </td>
+                <td class="p-2 border"><input type="number" value="0.00" step="0.01" class="w-24 p-1 border rounded valor-item" onchange="calcularTudo()"></td>
+                <td class="p-2 border font-semibold total-linha">R$ 0,00</td>
+            `;
+            tbody.insertBefore(novaLinha, document.getElementById('linha-adicionar'));
+        }
+
+        // Calcular TODOS os valores (Subtotal, Desconto, Frete, Maquininha e Total)
+        function calcularTudo() {
+            // 1. Calcula o Subtotal dos produtos
+            const linhas = document.querySelectorAll('#tabela-itens tr:not(#linha-adicionar)');
+            let subtotal = 0;
+
+            linhas.forEach(linha => {
+                const qtd = parseFloat(linha.querySelector('.qtd-item')?.value) || 0;
+                const valor = parseFloat(linha.querySelector('.valor-item')?.value) || 0;
+                const totalLinha = qtd * valor;
+                
+                if(linha.querySelector('.total-linha')) {
+                    linha.querySelector('.total-linha').innerText = 'R$ ' + totalLinha.toFixed(2).replace('.', ',');
+                }
+                subtotal += totalLinha;
+            });
+
+            // 2. Calcula o Desconto (%)
+            const pctDesconto = parseFloat(document.getElementById('input-desconto').value) || 0;
+            const valorDesconto = subtotal * (pctDesconto / 100);
+            const subtotalComDesconto = subtotal - valorDesconto;
+
+            // 3. Calcula o Frete (Frota Própria: KM / 9 * 4.20)
+            const km = parseFloat(document.getElementById('input-km').value) || 0;
+            const precoLitro = parseFloat(document.getElementById('input-litro').value) || 4.20;
+            const kmPorLitro = parseFloat(document.getElementById('input-consumo').value) || 9.0;
+            
+            let frete = 0;
+            if (km > 0) {
+                frete = (km / kmPorLitro) * precoLitro;
+            }
+            document.getElementById('display-frete-estimado').value = 'R$ ' + frete.toFixed(2).replace('.', ',');
+
+            // 4. Calcula Taxa da Maquininha (se for cartão)
+            const formaPgto = document.getElementById('select-pagamento').value;
+            let taxaCartao = 0;
+            // Simulando uma taxa de 5% se for crédito
+            if (formaPgto === 'Cartão de Crédito') {
+                taxaCartao = (subtotalComDesconto + frete) * 0.05; 
+                document.getElementById('info-taxa').innerText = `Taxa Maquininha (5%): R$ ${taxaCartao.toFixed(2).replace('.', ',')}`;
+                document.getElementById('info-taxa').classList.remove('hidden');
+            } else {
+                document.getElementById('info-taxa').classList.add('hidden');
+            }
+
+            // 5. Calcula Total Final
+            const totalGeral = subtotalComDesconto + frete + taxaCartao;
+
+            // Atualiza os textos na tela
+            document.getElementById('display-subtotal').innerText = 'Subtotal: R$ ' + subtotal.toFixed(2).replace('.', ',');
+            document.getElementById('display-desconto').innerText = 'Desconto: - R$ ' + valorDesconto.toFixed(2).replace('.', ',');
+            document.getElementById('display-frete-final').innerText = 'Frete: R$ ' + frete.toFixed(2).replace('.', ',');
+            
+            const displayTaxa = document.getElementById('display-taxa-final');
+            if (taxaCartao > 0) {
+                displayTaxa.innerText = 'Acréscimo Cartão: R$ ' + taxaCartao.toFixed(2).replace('.', ',');
+                displayTaxa.classList.remove('hidden');
+            } else {
+                displayTaxa.classList.add('hidden');
+            }
+
+            document.getElementById('display-total').innerText = 'Total: R$ ' + totalGeral.toFixed(2).replace('.', ',');
+        }
     </script>
 </head>
-<body class="bg-gray-100 flex flex-col md:flex-row h-screen overflow-hidden">
+<body class="bg-gray-100 flex flex-col md:flex-row h-screen overflow-hidden" onload="calcularTudo()">
 
     <aside class="w-full md:w-64 bg-gray-900 text-white flex flex-col flex-shrink-0">
         <div class="p-4 md:p-6 text-center border-b border-gray-700">
@@ -32,9 +117,6 @@
             <button id="btn-logistica" onclick="mostrarAba('aba-logistica')" class="text-sm md:text-base text-left p-3 rounded hover:bg-gray-600 transition">
                 🚚 Logística e Romaneio
             </button>
-            <button class="text-sm md:text-base text-left p-3 rounded text-gray-500 cursor-not-allowed">
-                💰 Financeiro (Em breve)
-            </button>
         </nav>
     </aside>
 
@@ -45,16 +127,21 @@
             
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div class="bg-white p-4 md:p-6 rounded-lg shadow-sm">
-                    <h3 class="text-lg font-semibold mb-4 text-gray-700">Dados do Cliente</h3>
+                    <h3 class="text-lg font-semibold mb-4 text-gray-700">Dados do Cliente & Frete</h3>
                     <div class="space-y-3">
                         <input type="text" placeholder="Nome do Cliente (Busca automática)" class="w-full p-2 border rounded bg-gray-50">
                         <div class="flex flex-col md:flex-row gap-2">
-                            <input type="text" placeholder="CEP" class="w-full md:w-1/3 p-2 border rounded bg-gray-50">
-                            <input type="text" placeholder="Endereço Completo" class="w-full md:w-2/3 p-2 border rounded bg-gray-50" readonly>
+                            <input type="text" placeholder="Endereço Completo" class="w-full p-2 border rounded bg-gray-50">
                         </div>
-                        <div class="flex flex-col md:flex-row gap-2 md:items-center">
-                            <input type="text" placeholder="Valor do Frete Estimado" class="w-full md:w-1/2 p-2 border rounded bg-yellow-50 text-yellow-900" readonly>
-                            <span class="text-xs text-gray-500">*Calculado via distância</span>
+                        
+                        <div class="p-3 bg-blue-50 border border-blue-100 rounded">
+                            <p class="text-xs font-semibold text-blue-800 mb-2">Cálculo de Frete (Frota Própria)</p>
+                            <div class="flex flex-col md:flex-row gap-2 items-center">
+                                <input type="number" id="input-km" placeholder="Distância (KM)" class="w-full md:w-1/3 p-2 border rounded text-sm" onchange="calcularTudo()" onkeyup="calcularTudo()">
+                                <input type="number" id="input-litro" value="4.20" step="0.01" title="Valor do Litro (R$)" class="w-full md:w-1/4 p-2 border rounded text-sm bg-gray-100" onchange="calcularTudo()" readonly>
+                                <input type="number" id="input-consumo" value="9.0" title="KM por Litro" class="w-full md:w-1/4 p-2 border rounded text-sm bg-gray-100" onchange="calcularTudo()" readonly>
+                                <input type="text" id="display-frete-estimado" placeholder="R$ 0,00" class="w-full md:w-1/3 p-2 border rounded font-bold text-blue-900 bg-transparent text-right" readonly>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -62,11 +149,11 @@
                 <div class="bg-white p-4 md:p-6 rounded-lg shadow-sm">
                     <h3 class="text-lg font-semibold mb-4 text-gray-700">Controle do Pedido</h3>
                     <div class="space-y-3">
-                        <select class="w-full p-2 border rounded bg-gray-50">
+                        <select class="w-full p-2 border rounded bg-gray-50 text-sm">
                             <option>Status: Orçamento</option>
-                            <option>Status: Produção</option>
+                            <option>Status: Produção (WhatsApp final 9797)</option>
                             <option>Status: Estoque / A Retirar</option>
-                            <option>Status: Entregue</option>
+                            <option>Status: Entregue (WhatsApp final 9497)</option>
                         </select>
                         <div class="flex flex-col md:flex-row gap-2">
                             <div class="w-full md:w-1/2">
@@ -74,7 +161,7 @@
                                 <input type="date" class="w-full p-2 border rounded bg-gray-50">
                             </div>
                             <div class="w-full md:w-1/2">
-                                <label class="text-xs text-gray-500">Status Financeiro</label>
+                                <label class="text-xs text-gray-500">Status Financeiro (Manual)</label>
                                 <select class="w-full p-2 border rounded bg-gray-50">
                                     <option>A Receber</option>
                                     <option>Pago</option>
@@ -92,27 +179,28 @@
                         <thead>
                             <tr class="bg-gray-100 text-gray-600 text-sm">
                                 <th class="p-2 border">Qtd</th>
-                                <th class="p-2 border">Produto (Busca Tabela)</th>
+                                <th class="p-2 border">Produto</th>
                                 <th class="p-2 border">Fornecedor</th>
-                                <th class="p-2 border">Valor Unit.</th>
+                                <th class="p-2 border">Valor Unit. (R$)</th>
                                 <th class="p-2 border">Total</th>
                             </tr>
                         </thead>
-                        <tbody>
+                        <tbody id="tabela-itens">
                             <tr class="text-sm">
-                                <td class="p-2 border"><input type="number" value="2" class="w-16 p-1 border rounded"></td>
-                                <td class="p-2 border">Veneziana 6f quadricula 150x100 R14</td>
+                                <td class="p-2 border"><input type="number" value="2" min="1" class="w-16 p-1 border rounded qtd-item" onchange="calcularTudo()" onkeyup="calcularTudo()"></td>
+                                <td class="p-2 border"><input type="text" value="Veneziana 6f quadricula" class="w-full p-1 border rounded"></td>
                                 <td class="p-2 border">
                                     <select class="w-full p-1 border rounded">
-                                        <option>Alumínios Brás</option>
-                                        <option>Vidraçaria Central</option>
+                                        <option selected>Alumínios Brás</option>
                                     </select>
                                 </td>
-                                <td class="p-2 border whitespace-nowrap">R$ 551,25</td>
-                                <td class="p-2 border font-semibold whitespace-nowrap">R$ 1.102,50</td>
+                                <td class="p-2 border"><input type="number" value="551.25" step="0.01" class="w-24 p-1 border rounded valor-item" onchange="calcularTudo()" onkeyup="calcularTudo()"></td>
+                                <td class="p-2 border font-semibold total-linha">R$ 0,00</td>
                             </tr>
-                            <tr class="text-sm">
-                                <td class="p-2 border" colspan="5"><button class="text-blue-600 hover:underline">+ Adicionar Item</button></td>
+                            <tr class="text-sm" id="linha-adicionar">
+                                <td class="p-2 border bg-gray-50 text-center" colspan="5">
+                                    <button onclick="adicionarLinha()" class="text-blue-600 font-semibold hover:underline w-full py-2">+ Adicionar Novo Item</button>
+                                </td>
                             </tr>
                         </tbody>
                     </table>
@@ -120,22 +208,38 @@
             </div>
 
             <div class="bg-white p-4 md:p-6 rounded-lg shadow-sm flex flex-col md:flex-row justify-between items-start gap-6">
-                <div class="w-full md:w-1/2 space-y-3 md:pr-4">
-                    <h3 class="text-lg font-semibold text-gray-700">Condição de Pagamento</h3>
-                    <select class="w-full p-2 border rounded bg-gray-50">
-                        <option>Pix</option>
-                        <option>Cartão de Crédito</option>
-                        <option>Boleto</option>
-                    </select>
-                    <div class="flex flex-col md:flex-row gap-2 md:items-center">
-                        <input type="number" placeholder="Nº Parcelas" class="w-full md:w-1/3 p-2 border rounded bg-gray-50">
-                        <span class="text-sm text-gray-500">Taxa Maquininha: R$ 0,00 (Auto)</span>
+                <div class="w-full md:w-1/2 space-y-4 md:pr-4">
+                    <h3 class="text-lg font-semibold text-gray-700">Pagamento & Desconto</h3>
+                    
+                    <div class="flex gap-4">
+                        <div class="w-1/2">
+                            <label class="text-xs text-gray-500">Desconto Geral (%)</label>
+                            <input type="number" id="input-desconto" value="0" min="0" max="100" class="w-full p-2 border rounded bg-gray-50" onchange="calcularTudo()" onkeyup="calcularTudo()">
+                        </div>
+                        <div class="w-1/2">
+                            <label class="text-xs text-gray-500">Forma de Pagamento</label>
+                            <select id="select-pagamento" class="w-full p-2 border rounded bg-gray-50" onchange="calcularTudo()">
+                                <option value="Pix">Pix</option>
+                                <option value="Dinheiro">Dinheiro</option>
+                                <option value="Cartão de Crédito">Cartão de Crédito</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div id="info-taxa" class="hidden text-sm text-red-600 bg-red-50 p-2 rounded border border-red-100">
+                        Taxa Maquininha: R$ 0,00
                     </div>
                 </div>
+
                 <div class="w-full md:w-1/3 bg-gray-50 p-4 rounded border text-right">
-                    <p class="text-gray-500">Subtotal: R$ 1.102,50</p>
-                    <p class="text-gray-500">Frete: R$ 35,00</p>
-                    <p class="text-2xl font-bold text-gray-800 mt-2">Total: R$ 1.137,50</p>
+                    <p class="text-gray-500" id="display-subtotal">Subtotal: R$ 0,00</p>
+                    <p class="text-green-600 font-medium" id="display-desconto">Desconto: - R$ 0,00</p>
+                    <p class="text-gray-500" id="display-frete-final">Frete: R$ 0,00</p>
+                    <p class="text-red-500 hidden" id="display-taxa-final">Acréscimo Cartão: R$ 0,00</p>
+                    
+                    <div class="border-t mt-2 pt-2">
+                        <p class="text-2xl font-bold text-gray-800" id="display-total">Total: R$ 0,00</p>
+                    </div>
                     <button class="mt-4 w-full bg-green-600 text-white font-bold py-2 rounded hover:bg-green-700">Salvar Pedido</button>
                 </div>
             </div>
@@ -144,32 +248,11 @@
         <div id="aba-logistica" class="hidden space-y-6">
             <h2 class="text-2xl md:text-3xl font-bold text-gray-800 border-b pb-2">Gestão de Logística</h2>
             
-            <div class="bg-white p-4 md:p-6 rounded-lg shadow-sm flex flex-col md:flex-row gap-4 md:items-end">
-                <div class="w-full md:w-1/4">
-                    <label class="text-xs text-gray-500">Filtrar por Cidade</label>
-                    <input type="text" placeholder="Ex: Bady Bassitt" class="w-full p-2 border rounded">
-                </div>
-                <div class="w-full md:w-1/4">
-                    <label class="text-xs text-gray-500">Status</label>
-                    <select class="w-full p-2 border rounded">
-                        <option>A Retirar / Estoque</option>
-                        <option>Produção</option>
-                    </select>
-                </div>
-                <div class="w-full md:w-1/4">
-                    <label class="text-xs text-gray-500">Previsão até</label>
-                    <input type="date" class="w-full p-2 border rounded">
-                </div>
-                <div class="w-full md:w-1/4">
-                    <button class="w-full bg-blue-600 text-white font-bold py-2 rounded hover:bg-blue-700">Filtrar Pedidos</button>
-                </div>
-            </div>
-
             <div class="bg-white p-4 md:p-6 rounded-lg shadow-sm">
                 <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-2">
                     <h3 class="text-lg font-semibold text-gray-700">Montar Romaneio de Entrega</h3>
                     <div class="text-sm bg-yellow-100 text-yellow-800 px-3 py-1 rounded w-full md:w-auto text-center">
-                        Teto de Frete da Rota: <span class="font-bold">R$ 150,00</span>
+                        Rotas baseadas na frota própria
                     </div>
                 </div>
                 
@@ -180,8 +263,7 @@
                                 <th class="p-2 border">Incluir</th>
                                 <th class="p-2 border">Pedido</th>
                                 <th class="p-2 border">Cliente</th>
-                                <th class="p-2 border">Cidade</th>
-                                <th class="p-2 border">Frete Calc.</th>
+                                <th class="p-2 border">Status</th>
                                 <th class="p-2 border">Ação WhatsApp</th>
                             </tr>
                         </thead>
@@ -190,27 +272,29 @@
                                 <td class="p-2 border text-center"><input type="checkbox" checked></td>
                                 <td class="p-2 border font-bold">#781</td>
                                 <td class="p-2 border whitespace-nowrap">Marcelo Garutti</td>
-                                <td class="p-2 border whitespace-nowrap">Bady Bassitt</td>
-                                <td class="p-2 border whitespace-nowrap">R$ 35,00</td>
+                                <td class="p-2 border whitespace-nowrap"><span class="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs">Em Entrega</span></td>
                                 <td class="p-2 border">
-                                    <button class="text-xs bg-green-500 text-white px-2 py-1 rounded hover:bg-green-600 whitespace-nowrap">Disparar "Próximo"</button>
+                                    <button class="text-xs bg-green-500 text-white px-2 py-1 rounded hover:bg-green-600 whitespace-nowrap">
+                                        📲 Avisar Saída (Final 9497)
+                                    </button>
                                 </td>
                             </tr>
                             <tr class="text-sm hover:bg-gray-50">
                                 <td class="p-2 border text-center"><input type="checkbox"></td>
                                 <td class="p-2 border font-bold">#782</td>
                                 <td class="p-2 border whitespace-nowrap">Obra Denilson</td>
-                                <td class="p-2 border whitespace-nowrap">São José do Rio Preto</td>
-                                <td class="p-2 border whitespace-nowrap">R$ 45,00</td>
+                                <td class="p-2 border whitespace-nowrap"><span class="bg-orange-100 text-orange-800 px-2 py-1 rounded text-xs">Em Produção</span></td>
                                 <td class="p-2 border">
-                                    <button class="text-xs bg-green-500 text-white px-2 py-1 rounded hover:bg-green-600 whitespace-nowrap">Disparar "Próximo"</button>
+                                    <button class="text-xs bg-green-500 text-white px-2 py-1 rounded hover:bg-green-600 whitespace-nowrap">
+                                        📲 Avisar Início (Final 9797)
+                                    </button>
                                 </td>
                             </tr>
                         </tbody>
                     </table>
                 </div>
                 <div class="mt-4 flex justify-end">
-                    <button class="w-full md:w-auto bg-gray-800 text-white font-bold py-2 px-6 rounded hover:bg-gray-900">Gerar Rota do Entregador</button>
+                    <button class="w-full md:w-auto bg-gray-800 text-white font-bold py-2 px-6 rounded hover:bg-gray-900">Gerar Roteiro no Mapa</button>
                 </div>
             </div>
         </div>
