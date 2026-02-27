@@ -4,13 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MPLEÃO - Gestão de Pedidos</title>
-    <!-- Tailwind CSS via CDN -->
+    <!-- Tailwind CSS via CDN (apenas para desenvolvimento) -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-    <!-- Select2 para busca em selects -->
-    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
     
     <style>
         .cliente-card {
@@ -51,19 +47,6 @@
             background-color: #dc2626;
             color: white;
         }
-        
-        /* Estilo para Select2 */
-        .select2-container--default .select2-selection--single {
-            height: 38px;
-            border: 1px solid #d1d5db;
-            border-radius: 0.375rem;
-        }
-        .select2-container--default .select2-selection--single .select2-selection__rendered {
-            line-height: 36px;
-        }
-        .select2-container--default .select2-selection--single .select2-selection__arrow {
-            height: 36px;
-        }
     </style>
     
     <script>
@@ -80,70 +63,47 @@
             botoes.forEach(btn => document.getElementById(btn).classList.remove('bg-gray-700'));
             document.getElementById('btn-' + abaId.split('-')[1]).classList.add('bg-gray-700');
             
-            if (abaId === 'aba-financeiro' && typeof window.carregarDadosFinanceiros === 'function') {
-                window.carregarDadosFinanceiros();
+            // Se for aba financeiro, atualiza os dados
+            if (abaId === 'aba-financeiro') {
+                if (typeof window.carregarDadosFinanceiros === 'function') {
+                    window.carregarDadosFinanceiros();
+                }
             }
         }
 
-        // ==========================================
-        // FUNÇÃO CORRIGIDA - ADICIONAR LINHA COM SELECT2
-        // ==========================================
-// ==========================================
-// FUNÇÃO CORRIGIDA - ADICIONAR LINHA
-// ==========================================
-function adicionarLinha() {
-    if (!podeEditarPedido()) {
-        alert('❌ Não é possível adicionar itens em um pedido que já está em Produção, Em Entrega ou Entregue!');
-        return;
-    }
-    
-    const tbody = document.getElementById('tabela-itens');
-    const linhaAdicionar = document.getElementById('linha-adicionar');
-    
-    const novaLinha = document.createElement('tr');
-    novaLinha.className = 'text-sm';
-    
-    const selectId = 'produto-select-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5);
-    
-    novaLinha.innerHTML = `
-        <td class="p-2 border"><input type="number" value="1" min="1" class="w-16 p-1 border rounded qtd-item" onchange="calcularTudo()" onkeyup="calcularTudo()"></td>
-        <td class="p-2 border">
-            <select id="${selectId}" class="w-full p-1 border rounded desc-item border-blue-300 focus:ring-2 focus:ring-blue-500 bg-gray-50 produto-select" style="width: 100%;" onchange="window.preencherProduto(this)">
-                <option value="">Selecione um produto</option>
-            </select>
-        </td>
-        <td class="p-2 border">
-            <input type="text" placeholder="Fornecedor" class="w-full p-1 border rounded forn-item bg-gray-100" readonly>
-        </td>
-        <td class="p-2 border"><input type="text" class="w-24 p-1 border rounded valor-item bg-gray-100 text-right" value="R$ 0,00" readonly></td>
-        <td class="p-2 border font-semibold total-linha">R$ 0,00</td>
-        <td class="p-2 border text-center"><button onclick="if(podeEditarPedido()) { this.closest('tr').remove(); calcularTudo(); } else { alert('❌ Não é possível remover itens de um pedido em andamento!'); }" class="text-red-500 font-bold hover:text-red-700">X</button></td>
-    `;
-    
-    // Insere antes da linha de adicionar
-    tbody.insertBefore(novaLinha, linhaAdicionar);
-    
-    // Popula o select com produtos
-    const select = document.getElementById(selectId);
-    if (select && window.bancoProdutos) {
-        window.bancoProdutos.forEach(p => {
-            const option = document.createElement('option');
-            option.value = p.descricao;
-            option.setAttribute('data-valor', p.valor_base);
-            option.setAttribute('data-forn', p.fornecedor || '');
-            option.textContent = `${p.descricao} - ${formatarValorReais(p.valor_base)}`;
-            select.appendChild(option);
-        });
-        
-        if ($.fn.select2) {
-            $(select).select2({
-                placeholder: "Busque um produto...",
-                allowClear: true,
-                width: '100%'
-            });
+        function adicionarLinha() {
+            if (!podeEditarPedido()) {
+                alert('❌ Não é possível adicionar itens em um pedido que já está em Produção, Em Entrega ou Entregue!');
+                return;
+            }
+            
+            const tbody = document.getElementById('tabela-itens');
+            const novaLinha = document.createElement('tr');
+            novaLinha.className = 'text-sm';
+            novaLinha.innerHTML = `
+                <td class="p-2 border"><input type="number" value="1" min="1" class="w-16 p-1 border rounded qtd-item" onchange="calcularTudo()" onkeyup="calcularTudo()"></td>
+                <td class="p-2 border">
+                    <select class="w-full p-1 border rounded desc-item border-blue-300 focus:ring-2 focus:ring-blue-500 bg-gray-50" onchange="window.preencherProduto(this)">
+                        <option value="">Selecione um produto</option>
+                        ${gerarOpcoesProdutos()}
+                    </select>
+                </td>
+                <td class="p-2 border">
+                    <input type="text" placeholder="Fornecedor" class="w-full p-1 border rounded forn-item bg-gray-100" readonly>
+                </td>
+                <td class="p-2 border"><input type="text" class="w-24 p-1 border rounded valor-item bg-gray-100 text-right" value="R$ 0,00" readonly></td>
+                <td class="p-2 border font-semibold total-linha">R$ 0,00</td>
+                <td class="p-2 border text-center"><button onclick="if(podeEditarPedido()) { this.closest('tr').remove(); calcularTudo(); } else { alert('❌ Não é possível remover itens de um pedido em andamento!'); }" class="text-red-500 font-bold hover:text-red-700">X</button></td>
+            `;
+            tbody.insertBefore(novaLinha, document.getElementById('linha-adicionar'));
         }
-    }
-}
+
+        function gerarOpcoesProdutos() {
+            if (!window.bancoProdutos || window.bancoProdutos.length === 0) return '';
+            return window.bancoProdutos.map(p => 
+                `<option value="${p.descricao}" data-valor="${p.valor_base}" data-forn="${p.fornecedor || ''}">${p.descricao} - ${formatarValorReais(p.valor_base)}</option>`
+            ).join('');
+        }
 
         function podeEditarPedido() {
             const statusAtual = document.getElementById('select-status')?.value || 'Orçamento';
@@ -380,14 +340,6 @@ function adicionarLinha() {
             <button id="btn-financeiro" onclick="mostrarAba('aba-financeiro')" class="text-sm md:text-base text-left p-3 rounded hover:bg-gray-600 transition">💰 Financeiro</button>
             <button onclick="window.fazerLogout()" class="mt-auto text-sm text-left p-3 text-red-400 hover:bg-gray-800 rounded transition font-bold">🚪 Encerrar Sessão</button>
         </nav>
-        
-        <!-- BOTÃO DE RESET DO SISTEMA -->
-        <div class="p-4 border-t border-gray-700">
-            <button onclick="window.resetCompletoSistema()" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded transition flex items-center justify-center gap-2 text-sm">
-                ⚠️ RESET TOTAL
-            </button>
-            <p class="text-xs text-gray-500 text-center mt-2">Apaga TODOS os dados</p>
-        </div>
     </aside>
 
     <main class="flex-1 overflow-y-auto p-4 md:p-8">
@@ -413,9 +365,12 @@ function adicionarLinha() {
                     
                     <div class="mb-4">
                         <label class="text-xs text-gray-500 mb-1 block">🔍 Selecione o Cliente</label>
-                        <select id="input-cliente" class="w-full p-2 border rounded bg-gray-50 border-blue-300 focus:ring-2 focus:ring-blue-500 cliente-select" onchange="window.carregarDadosCliente()">
-                            <option value="">Selecione um cliente</option>
-                        </select>
+                        <input type="text" 
+                               id="input-cliente" 
+                               list="lista-sugestao-clientes" 
+                               placeholder="Digite o nome do cliente..." 
+                               class="w-full p-2 border rounded bg-gray-50 border-blue-300 focus:ring-2 focus:ring-blue-500" 
+                               onchange="window.carregarDadosCliente()">
                     </div>
                     
                     <div id="dados-cliente-container" class="hidden space-y-3 p-4 bg-gray-50 rounded-lg border border-gray-200">
@@ -449,22 +404,47 @@ function adicionarLinha() {
                     <div class="space-y-4">
                         <div>
                             <label class="text-xs text-gray-500 mb-1 block">📏 Distância (KM)</label>
-                            <input type="number" id="input-km" value="0" step="0.1" class="w-full p-2 border rounded bg-gray-50 focus:ring-2 focus:ring-blue-500" onchange="calcularTudo()" onkeyup="calcularTudo()" placeholder="Ex: 200">
+                            <input type="number" 
+                                   id="input-km" 
+                                   value="0" 
+                                   step="0.1" 
+                                   class="w-full p-2 border rounded bg-gray-50 focus:ring-2 focus:ring-blue-500" 
+                                   onchange="calcularTudo()" 
+                                   onkeyup="calcularTudo()"
+                                   placeholder="Ex: 200">
                         </div>
                         
                         <div>
                             <label class="text-xs text-gray-500 mb-1 block">⛽ Preço do Combustível (R$)</label>
-                            <input type="number" id="input-litro" value="4.20" step="0.01" class="w-full p-2 border rounded bg-gray-50 focus:ring-2 focus:ring-blue-500" onchange="calcularTudo()" onkeyup="calcularTudo()">
+                            <input type="number" 
+                                   id="input-litro" 
+                                   value="4.20" 
+                                   step="0.01" 
+                                   class="w-full p-2 border rounded bg-gray-50 focus:ring-2 focus:ring-blue-500" 
+                                   onchange="calcularTudo()" 
+                                   onkeyup="calcularTudo()">
                         </div>
                         
                         <div>
                             <label class="text-xs text-gray-500 mb-1 block">⚡ Consumo (km/l)</label>
-                            <input type="number" id="input-consumo" value="9.0" step="0.1" class="w-full p-2 border rounded bg-gray-50 focus:ring-2 focus:ring-blue-500" onchange="calcularTudo()" onkeyup="calcularTudo()">
+                            <input type="number" 
+                                   id="input-consumo" 
+                                   value="9.0" 
+                                   step="0.1" 
+                                   class="w-full p-2 border rounded bg-gray-50 focus:ring-2 focus:ring-blue-500" 
+                                   onchange="calcularTudo()" 
+                                   onkeyup="calcularTudo()">
                         </div>
                         
                         <div>
                             <label class="text-xs text-gray-500 mb-1 block">🛣️ Pedágio (R$)</label>
-                            <input type="text" id="input-pedagio" value="0,00" class="w-full p-2 border rounded bg-gray-50 focus:ring-2 focus:ring-blue-500 text-right" onchange="calcularTudo()" onkeyup="formatarValorInput(this); calcularTudo()" placeholder="0,00">
+                            <input type="text" 
+                                   id="input-pedagio" 
+                                   value="0,00" 
+                                   class="w-full p-2 border rounded bg-gray-50 focus:ring-2 focus:ring-blue-500 text-right" 
+                                   onchange="calcularTudo()" 
+                                   onkeyup="formatarValorInput(this); calcularTudo()"
+                                   placeholder="0,00">
                         </div>
                         
                         <div class="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
@@ -604,7 +584,7 @@ function adicionarLinha() {
                             <tr class="text-sm">
                                 <td class="p-2 border"><input type="number" value="1" min="1" class="w-16 p-1 border rounded qtd-item" onchange="calcularTudo()" onkeyup="calcularTudo()"></td>
                                 <td class="p-2 border">
-                                    <select class="w-full p-1 border rounded desc-item border-blue-300 focus:ring-2 focus:ring-blue-500 bg-gray-50 produto-select" style="width: 100%;" onchange="window.preencherProduto(this)">
+                                    <select class="w-full p-1 border rounded desc-item border-blue-300 focus:ring-2 focus:ring-blue-500 bg-gray-50" onchange="window.preencherProduto(this)">
                                         <option value="">Selecione um produto</option>
                                     </select>
                                 </td>
@@ -704,8 +684,17 @@ function adicionarLinha() {
                     <div>
                         <label class="text-sm text-gray-600">CEP</label>
                         <div class="flex gap-2">
-                            <input type="text" id="cli-cep" class="w-40 p-2 border rounded bg-gray-50" placeholder="00000-000" maxlength="9" onkeyup="formatarCEP(this)">
-                            <button type="button" onclick="buscarCEPCadastro()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition text-sm">🔍 Buscar</button>
+                            <input type="text" 
+                                   id="cli-cep" 
+                                   class="w-40 p-2 border rounded bg-gray-50" 
+                                   placeholder="00000-000" 
+                                   maxlength="9"
+                                   onkeyup="formatarCEP(this)">
+                            <button type="button" 
+                                    onclick="buscarCEPCadastro()" 
+                                    class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition text-sm">
+                                🔍 Buscar
+                            </button>
                         </div>
                         <p id="cep-status-cadastro" class="text-xs mt-1 text-gray-500"></p>
                     </div>
@@ -940,7 +929,7 @@ function adicionarLinha() {
     <!-- ========================================== -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getFirestore, collection, addDoc, serverTimestamp, getDocs, doc, updateDoc, deleteDoc, runTransaction, writeBatch } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, serverTimestamp, getDocs, doc, updateDoc, deleteDoc, runTransaction } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
         import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
         const firebaseConfig = {
@@ -975,63 +964,6 @@ function adicionarLinha() {
 
         window.fazerLogout = function() {
             signOut(auth).then(() => window.location.replace('login.html'));
-        };
-
-        // ==========================================
-        // FUNÇÃO DE RESET COMPLETO DO SISTEMA
-        // ==========================================
-        
-        window.resetCompletoSistema = async function() {
-            if (!confirm('⚠️ ATENÇÃO! Isso vai APAGAR TODOS os dados do sistema!\n\nClientes, produtos, pedidos e parcelas serão PERMANENTEMENTE excluídos.\n\nTem certeza?')) return;
-            
-            const senhaConfirmacao = prompt('🔐 PARA CONFIRMAR, digite a palavra: RESETAR');
-            if (senhaConfirmacao !== 'RESETAR') {
-                alert('❌ Operação cancelada - palavra incorreta.');
-                return;
-            }
-            
-            if (!confirm('🚨 ÚLTIMA CHANCE! Deseja realmente APAGAR TUDO e começar do zero?')) return;
-            
-            try {
-                alert('🔄 Resetando sistema... Isso pode levar alguns segundos.');
-                
-                // Apagar pedidos
-                const pedidosSnap = await getDocs(collection(db, "pedidos"));
-                const batchPedidos = writeBatch(db);
-                pedidosSnap.docs.forEach(doc => batchPedidos.delete(doc.ref));
-                await batchPedidos.commit();
-                
-                // Apagar clientes
-                const clientesSnap = await getDocs(collection(db, "clientes"));
-                const batchClientes = writeBatch(db);
-                clientesSnap.docs.forEach(doc => batchClientes.delete(doc.ref));
-                await batchClientes.commit();
-                
-                // Apagar produtos
-                const produtosSnap = await getDocs(collection(db, "produtos"));
-                const batchProdutos = writeBatch(db);
-                produtosSnap.docs.forEach(doc => batchProdutos.delete(doc.ref));
-                await batchProdutos.commit();
-                
-                // Apagar parcelas
-                const parcelasSnap = await getDocs(collection(db, "parcelas"));
-                const batchParcelas = writeBatch(db);
-                parcelasSnap.docs.forEach(doc => batchParcelas.delete(doc.ref));
-                await batchParcelas.commit();
-                
-                // Resetar contador
-                const contadorRef = doc(db, "configuracoes", "contador_pedidos");
-                await updateDoc(contadorRef, { ultimo_numero: 1 }).catch(async () => {
-                    await setDoc(contadorRef, { ultimo_numero: 1 });
-                });
-                
-                alert('✅ SISTEMA RESETADO COM SUCESSO!\n\nA página vai recarregar agora.');
-                window.location.reload();
-                
-            } catch (error) {
-                console.error('Erro no reset:', error);
-                alert('❌ Erro ao resetar sistema: ' + error.message);
-            }
         };
 
         // ==========================================
@@ -1099,9 +1031,7 @@ function adicionarLinha() {
         // ==========================================
         
         window.carregarDadosCliente = function() {
-            const selectCliente = document.getElementById('input-cliente');
-            const nomeCliente = selectCliente ? selectCliente.value : '';
-            
+            const nomeCliente = document.getElementById('input-cliente').value;
             const cliente = window.bancoClientes.find(c => c.nome === nomeCliente);
             
             const container = document.getElementById('dados-cliente-container');
@@ -1393,15 +1323,12 @@ function adicionarLinha() {
                         linhaClass = 'status-pendente';
                     }
                     
-                    const pedido = window.bancoPedidos.find(ped => ped.id === p.pedidoId);
-                    const numeroPedido = pedido?.numero_sequencial ? `#${pedido.numero_sequencial.toString().padStart(3, '0')}` : p.pedidoId.substring(0,6);
-                    
                     const parcelaTexto = p.totalParcelas > 1 ? `${p.numeroParcela}/${p.totalParcelas}` : 'Única';
                     
                     html += `
                     <tr class="border-b hover:bg-gray-50 ${linhaClass}">
                         <td class="p-2 border">${p.cliente}</td>
-                        <td class="p-2 border font-bold">${numeroPedido}</td>
+                        <td class="p-2 border">#${p.pedidoId.substring(0,6)}</td>
                         <td class="p-2 border">${parcelaTexto}</td>
                         <td class="p-2 border">${formatarDataParaExibir(p.vencimento)}</td>
                         <td class="p-2 border">${formatarValorReais(p.valor)}</td>
@@ -1488,8 +1415,7 @@ function adicionarLinha() {
             }
             
             const pedidoId = document.getElementById('pedido-id-atual').value;
-            const clienteSelect = document.getElementById('input-cliente');
-            const cliente = clienteSelect ? clienteSelect.value : '';
+            const cliente = document.getElementById('input-cliente').value;
             
             if (!cliente) {
                 alert('⚠️ Selecione um cliente antes de mudar o status!');
@@ -1729,49 +1655,18 @@ function adicionarLinha() {
                     </td>
                 </tr>`).join('') || '<tr><td colspan="4" class="p-4 text-center text-gray-500">Nenhum produto encontrado</td></tr>';
 
-            // Atualiza select de clientes
-            const selectCliente = document.getElementById('input-cliente');
-            if (selectCliente) {
-                const currentValue = selectCliente.value;
-                selectCliente.innerHTML = '<option value="">Selecione um cliente</option>';
-                window.bancoClientes.forEach(c => {
-                    selectCliente.innerHTML += `<option value="${c.nome}">${c.nome}</option>`;
-                });
-                if (currentValue) {
-                    selectCliente.value = currentValue;
-                }
-                
-                if ($.fn.select2) {
-                    $(selectCliente).select2({
-                        placeholder: "Busque um cliente...",
-                        allowClear: true,
-                        width: '100%'
-                    });
-                }
-            }
+            document.getElementById('lista-sugestao-clientes').innerHTML = window.bancoClientes.map(c => `<option value="${c.nome}">`).join('');
+            document.getElementById('lista-sugestao-produtos').innerHTML = window.bancoProdutos.map(p => `<option value="${p.descricao}">`).join('');
             
-            // Atualiza selects de produtos
-            document.querySelectorAll('#tabela-itens .produto-select').forEach(select => {
+            // Atualiza os selects de produtos
+            document.querySelectorAll('#tabela-itens .desc-item').forEach(select => {
                 const currentValue = select.value;
                 select.innerHTML = '<option value="">Selecione um produto</option>';
                 window.bancoProdutos.forEach(p => {
-                    const option = document.createElement('option');
-                    option.value = p.descricao;
-                    option.setAttribute('data-valor', p.valor_base);
-                    option.setAttribute('data-forn', p.fornecedor || '');
-                    option.textContent = `${p.descricao} - ${formatarValorReais(p.valor_base)}`;
-                    select.appendChild(option);
+                    select.innerHTML += `<option value="${p.descricao}" data-valor="${p.valor_base}" data-forn="${p.fornecedor || ''}">${p.descricao} - ${formatarValorReais(p.valor_base)}</option>`;
                 });
                 if (currentValue) {
                     select.value = currentValue;
-                }
-                
-                if ($.fn.select2) {
-                    $(select).select2({
-                        placeholder: "Busque um produto...",
-                        allowClear: true,
-                        width: '100%'
-                    });
                 }
             });
         }
@@ -1796,160 +1691,109 @@ function adicionarLinha() {
         // ==========================================
         // FUNÇÃO PARA NOVO PEDIDO
         // ==========================================
-// ==========================================
-// FUNÇÃO CORRIGIDA - NOVO PEDIDO (COM UMA LINHA EM BRANCO)
-// ==========================================
-window.novoPedido = function() {
-    console.log('➕ Iniciando novo pedido - reset completo');
-    
-    document.getElementById('pedido-id-atual').value = '';
-    
-    const selectCliente = document.getElementById('input-cliente');
-    if (selectCliente) {
-        if ($.fn.select2) {
-            $(selectCliente).val('').trigger('change');
-        } else {
-            selectCliente.value = '';
-        }
-    }
-    
-    document.getElementById('input-endereco').value = '';
-    document.getElementById('dados-cliente-container').classList.add('hidden');
-    
-    document.getElementById('input-km').value = '';
-    document.getElementById('input-litro').value = '4.20';
-    document.getElementById('input-consumo').value = '9.0';
-    document.getElementById('input-pedagio').value = '0,00';
-    
-    document.getElementById('input-desconto').value = '0';
-    document.getElementById('input-acrescimo').value = '0,00';
-    document.getElementById('input-motivo-acrescimo').value = '';
-    
-    document.getElementById('select-pagamento').value = 'Pix';
-    document.getElementById('select-condicao-pagamento').value = 'Vista';
-    document.getElementById('div-parcelas-personalizado').classList.add('hidden');
-    document.getElementById('input-primeiro-vencimento').value = '';
-    
-    document.getElementById('input-previsao').value = '';
-    document.getElementById('pdf-n-display').innerText = '';
-    
-    document.getElementById('custo-combustivel').innerText = 'R$ 0,00';
-    document.getElementById('custo-pedagio').innerText = 'R$ 0,00';
-    document.getElementById('custo-total-frete').innerText = 'R$ 0,00';
-    document.getElementById('display-frete-estimado').value = 'R$ 0,00';
-    document.getElementById('display-subtotal').innerText = 'Subtotal: R$ 0,00';
-    document.getElementById('display-desconto').innerText = 'Desconto: - R$ 0,00';
-    document.getElementById('display-acrescimo').innerText = 'Acréscimo: + R$ 0,00';
-    document.getElementById('display-frete-final').innerText = 'Frete: R$ 0,00';
-    document.getElementById('display-taxa-final').classList.add('hidden');
-    document.getElementById('display-total').innerText = 'Total: R$ 0,00';
-    document.getElementById('btn-gerar-pdf').setAttribute('data-total', '0,00');
-    
-    document.getElementById('btn-cancelar-pedido').classList.add('hidden');
-    
-    const btnSalvar = document.getElementById('btn-salvar');
-    btnSalvar.innerHTML = '📦 Salvar Pedido';
-    btnSalvar.classList.remove('bg-blue-600', 'hover:bg-blue-700');
-    btnSalvar.classList.add('bg-green-600', 'hover:bg-green-700');
-    
-    const selectStatus = document.getElementById('select-status');
-    if (selectStatus) selectStatus.value = 'Orçamento';
-    
-    const botoes = document.querySelectorAll('[id^="status-"]');
-    botoes.forEach(btn => {
-        btn.classList.remove('border-yellow-500', 'bg-yellow-50', 'text-yellow-700',
-            'border-blue-500', 'bg-blue-50', 'text-blue-700',
-            'border-orange-500', 'bg-orange-50', 'text-orange-700',
-            'border-green-500', 'bg-green-50', 'text-green-700');
-        btn.classList.add('border-gray-200', 'bg-gray-50', 'text-gray-700');
-    });
-    
-    const btnOrcamento = document.getElementById('status-orcamento');
-    if (btnOrcamento) {
-        btnOrcamento.classList.remove('border-gray-200', 'bg-gray-50', 'text-gray-700');
-        btnOrcamento.classList.add('border-yellow-500', 'bg-yellow-50', 'text-yellow-700');
-    }
-    
-    const barra = document.getElementById('progress-bar');
-    const label = document.getElementById('status-label');
-    if (barra) {
-        barra.classList.remove('bg-blue-500', 'bg-orange-500', 'bg-green-500');
-        barra.classList.add('bg-yellow-500');
-        barra.style.width = '25%';
-    }
-    if (label) {
-        label.innerHTML = 'Status: Orçamento - Orçamento';
-    }
-    
-    document.getElementById('aviso-bloqueio').classList.add('hidden');
-    
-    // ==========================================
-    // RECRIA A TABELA COM UMA LINHA EM BRANCO
-    // ==========================================
-    const tbody = document.getElementById('tabela-itens');
-    tbody.innerHTML = ''; // Limpa tudo
-    
-    // Adiciona uma linha em branco
-    const tr = document.createElement('tr');
-    tr.className = 'text-sm';
-    
-    const selectId = 'produto-select-' + Date.now() + '-0';
-    
-    tr.innerHTML = `
-        <td class="p-2 border"><input type="number" value="1" min="1" class="w-16 p-1 border rounded qtd-item" onchange="calcularTudo()" onkeyup="calcularTudo()"></td>
-        <td class="p-2 border">
-            <select id="${selectId}" class="w-full p-1 border rounded desc-item border-blue-300 focus:ring-2 focus:ring-blue-500 bg-gray-50 produto-select" style="width: 100%;" onchange="window.preencherProduto(this)">
-                <option value="">Selecione um produto</option>
-            </select>
-        </td>
-        <td class="p-2 border"><input type="text" placeholder="Fornecedor" class="w-full p-1 border rounded forn-item bg-gray-100" readonly></td>
-        <td class="p-2 border"><input type="text" class="w-24 p-1 border rounded valor-item bg-gray-100 text-right" value="R$ 0,00" readonly></td>
-        <td class="p-2 border font-semibold total-linha">R$ 0,00</td>
-        <td class="p-2 border text-center"><button onclick="if(podeEditarPedido()) { this.closest('tr').remove(); calcularTudo(); } else { alert('❌ Não é possível remover itens de um pedido em andamento!'); }" class="text-red-500 font-bold hover:text-red-700">X</button></td>
-    `;
-    
-    tbody.appendChild(tr);
-    
-    // Adiciona linha de adicionar
-    const linhaAdicionar = document.createElement('tr');
-    linhaAdicionar.className = 'text-sm';
-    linhaAdicionar.id = 'linha-adicionar';
-    linhaAdicionar.innerHTML = `
-        <td class="p-2 border bg-gray-50 text-center" colspan="6">
-            <button onclick="adicionarLinha()" class="text-blue-600 font-semibold hover:underline w-full py-2">
-                + Adicionar Item
-            </button>
-        </td>
-    `;
-    tbody.appendChild(linhaAdicionar);
-    
-    // Popula o select com produtos
-    const primeiroSelect = document.getElementById(selectId);
-    if (primeiroSelect && window.bancoProdutos) {
-        window.bancoProdutos.forEach(p => {
-            const option = document.createElement('option');
-            option.value = p.descricao;
-            option.setAttribute('data-valor', p.valor_base);
-            option.setAttribute('data-forn', p.fornecedor || '');
-            option.textContent = `${p.descricao} - ${formatarValorReais(p.valor_base)}`;
-            primeiroSelect.appendChild(option);
-        });
-        
-        if ($.fn.select2) {
-            $(primeiroSelect).select2({
-                placeholder: "Busque um produto...",
-                allowClear: true,
-                width: '100%'
+        window.novoPedido = function() {
+            console.log('➕ Iniciando novo pedido - reset completo');
+            
+            document.getElementById('pedido-id-atual').value = '';
+            document.getElementById('input-cliente').value = '';
+            document.getElementById('input-endereco').value = '';
+            document.getElementById('dados-cliente-container').classList.add('hidden');
+            
+            document.getElementById('input-km').value = '';
+            document.getElementById('input-litro').value = '4.20';
+            document.getElementById('input-consumo').value = '9.0';
+            document.getElementById('input-pedagio').value = '0,00';
+            
+            document.getElementById('input-desconto').value = '0';
+            document.getElementById('input-acrescimo').value = '0,00';
+            document.getElementById('input-motivo-acrescimo').value = '';
+            
+            document.getElementById('select-pagamento').value = 'Pix';
+            document.getElementById('select-condicao-pagamento').value = 'Vista';
+            document.getElementById('div-parcelas-personalizado').classList.add('hidden');
+            document.getElementById('input-primeiro-vencimento').value = '';
+            
+            document.getElementById('input-previsao').value = '';
+            document.getElementById('pdf-n-display').innerText = '';
+            
+            document.getElementById('custo-combustivel').innerText = 'R$ 0,00';
+            document.getElementById('custo-pedagio').innerText = 'R$ 0,00';
+            document.getElementById('custo-total-frete').innerText = 'R$ 0,00';
+            document.getElementById('display-frete-estimado').value = 'R$ 0,00';
+            document.getElementById('display-subtotal').innerText = 'Subtotal: R$ 0,00';
+            document.getElementById('display-desconto').innerText = 'Desconto: - R$ 0,00';
+            document.getElementById('display-acrescimo').innerText = 'Acréscimo: + R$ 0,00';
+            document.getElementById('display-frete-final').innerText = 'Frete: R$ 0,00';
+            document.getElementById('display-taxa-final').classList.add('hidden');
+            document.getElementById('display-total').innerText = 'Total: R$ 0,00';
+            document.getElementById('btn-gerar-pdf').setAttribute('data-total', '0,00');
+            
+            document.getElementById('btn-cancelar-pedido').classList.add('hidden');
+            
+            const btnSalvar = document.getElementById('btn-salvar');
+            btnSalvar.innerHTML = '📦 Salvar Pedido';
+            btnSalvar.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+            btnSalvar.classList.add('bg-green-600', 'hover:bg-green-700');
+            
+            const selectStatus = document.getElementById('select-status');
+            if (selectStatus) selectStatus.value = 'Orçamento';
+            
+            const botoes = document.querySelectorAll('[id^="status-"]');
+            botoes.forEach(btn => {
+                btn.classList.remove('border-yellow-500', 'bg-yellow-50', 'text-yellow-700',
+                    'border-blue-500', 'bg-blue-50', 'text-blue-700',
+                    'border-orange-500', 'bg-orange-50', 'text-orange-700',
+                    'border-green-500', 'bg-green-50', 'text-green-700');
+                btn.classList.add('border-gray-200', 'bg-gray-50', 'text-gray-700');
             });
+            
+            const btnOrcamento = document.getElementById('status-orcamento');
+            if (btnOrcamento) {
+                btnOrcamento.classList.remove('border-gray-200', 'bg-gray-50', 'text-gray-700');
+                btnOrcamento.classList.add('border-yellow-500', 'bg-yellow-50', 'text-yellow-700');
+            }
+            
+            const barra = document.getElementById('progress-bar');
+            const label = document.getElementById('status-label');
+            if (barra) {
+                barra.classList.remove('bg-blue-500', 'bg-orange-500', 'bg-green-500');
+                barra.classList.add('bg-yellow-500');
+                barra.style.width = '25%';
+            }
+            if (label) {
+                label.innerHTML = 'Status: Orçamento - Orçamento';
+            }
+            
+            document.getElementById('aviso-bloqueio').classList.add('hidden');
+            
+            const tbody = document.getElementById('tabela-itens');
+            tbody.innerHTML = `
+                <tr class="text-sm">
+                    <td class="p-2 border"><input type="number" value="1" min="1" class="w-16 p-1 border rounded qtd-item" onchange="calcularTudo()" onkeyup="calcularTudo()"></td>
+                    <td class="p-2 border">
+                        <select class="w-full p-1 border rounded desc-item border-blue-300 focus:ring-2 focus:ring-blue-500 bg-gray-50" onchange="window.preencherProduto(this)">
+                            <option value="">Selecione um produto</option>
+                            ${window.bancoProdutos.map(p => 
+                                `<option value="${p.descricao}" data-valor="${p.valor_base}" data-forn="${p.fornecedor || ''}">${p.descricao} - ${formatarValorReais(p.valor_base)}</option>`
+                            ).join('')}
+                        </select>
+                    </td>
+                    <td class="p-2 border"><input type="text" placeholder="Fornecedor" class="w-full p-1 border rounded forn-item bg-gray-100" readonly></td>
+                    <td class="p-2 border"><input type="text" class="w-24 p-1 border rounded valor-item bg-gray-100 text-right" value="R$ 0,00" readonly></td>
+                    <td class="p-2 border font-semibold total-linha">R$ 0,00</td>
+                    <td class="p-2 border text-center"><button onclick="if(podeEditarPedido()) { this.closest('tr').remove(); calcularTudo(); } else { alert('❌ Não é possível remover itens de um pedido em andamento!'); }" class="text-red-500 font-bold hover:text-red-700">X</button></td>
+                </tr>
+                <tr class="text-sm" id="linha-adicionar">
+                    <td class="p-2 border bg-gray-50 text-center" colspan="6"><button onclick="adicionarLinha()" class="text-blue-600 font-semibold hover:underline w-full py-2">+ Adicionar Item</button></td>
+                </tr>
+            `;
+            
+            calcularTudo();
+            
+            setTimeout(() => {
+                alert('✅ Novo pedido iniciado! Comece selecionando um cliente.');
+            }, 100);
         }
-    }
-    
-    calcularTudo();
-    
-    setTimeout(() => {
-        alert('✅ Novo pedido iniciado! Comece selecionando um cliente.');
-    }, 100);
-};
 
         // ==========================================
         // FUNÇÃO PARA CANCELAR EDIÇÃO
@@ -1967,8 +1811,7 @@ window.novoPedido = function() {
             const textoOriginal = btn.innerHTML;
             const id = document.getElementById('pedido-id-atual').value;
             
-            const selectCliente = document.getElementById('input-cliente');
-            const nomeCliente = selectCliente ? selectCliente.value : '';
+            const nomeCliente = document.getElementById('input-cliente').value;
             const cliente = window.bancoClientes.find(c => c.nome === nomeCliente);
             
             if (!cliente) {
@@ -2055,28 +1898,6 @@ window.novoPedido = function() {
                     atualizarTextoBotaoSalvar('editando');
                 }
                 
-                // ==========================================
-                // APAGAR PARCELAS ANTIGAS ANTES DE CRIAR NOVAS
-                // ==========================================
-                const parcelasAntigas = await getDocs(collection(db, "parcelas"));
-                const batchDelete = writeBatch(db);
-                let contador = 0;
-                
-                parcelasAntigas.forEach(doc => {
-                    if (doc.data().pedidoId === pedidoId) {
-                        batchDelete.delete(doc.ref);
-                        contador++;
-                    }
-                });
-                
-                if (contador > 0) {
-                    await batchDelete.commit();
-                    console.log(`${contador} parcelas antigas removidas`);
-                }
-                
-                // ==========================================
-                // GERAR NOVAS PARCELAS
-                // ==========================================
                 await gerarParcelas(
                     pedidoId,
                     nomeCliente,
@@ -2206,173 +2027,111 @@ window.novoPedido = function() {
         });
 
         // ==========================================
-        // FUNÇÃO CORRIGIDA - ABRIR PEDIDO (SEM CRIAR PARCELAS)
+        // FUNÇÕES AUXILIARES
         // ==========================================
+        
+        window.abrirPedidoParaEdicao = function(id) {
+            console.log('🔍 Abrindo pedido:', id);
+            
+            const pedido = window.bancoPedidos.find(x => x.id === id);
+            if (!pedido) {
+                alert('Pedido não encontrado!');
+                return;
+            }
 
-// ==========================================
-// FUNÇÃO CORRIGIDA - ABRIR PEDIDO (COM TODOS OS ITENS)
-// ==========================================
-window.abrirPedidoParaEdicao = function(id) {
-    console.log('🔍 Abrindo pedido para visualização/edição:', id);
-    
-    const pedido = window.bancoPedidos.find(x => x.id === id);
-    if (!pedido) {
-        alert('Pedido não encontrado!');
-        return;
-    }
-
-    const cliente = window.bancoClientes.find(c => c.id === pedido.cliente_id);
-    
-    // Preenche dados básicos
-    document.getElementById('pedido-id-atual').value = pedido.id;
-    
-    const selectCliente = document.getElementById('input-cliente');
-    if (selectCliente && pedido.cliente_nome) {
-        if ($.fn.select2) {
-            $(selectCliente).val(pedido.cliente_nome).trigger('change');
-        } else {
-            selectCliente.value = pedido.cliente_nome;
-        }
-    }
-    
-    document.getElementById('pdf-n-display').innerText = '#' + (pedido.numero_sequencial?.toString().padStart(3,'0') || '???');
-    
-    // Mostra dados do cliente
-    if (cliente) {
-        document.getElementById('cliente-telefone').innerText = cliente.telefone || '-';
-        document.getElementById('cliente-documento').innerText = cliente.documento || '-';
-        document.getElementById('cliente-endereco').innerText = cliente.endereco || '-';
-        document.getElementById('cliente-cep').innerText = cliente.cep || '-';
-        document.getElementById('dados-cliente-container').classList.remove('hidden');
-        document.getElementById('input-endereco').value = cliente.endereco || '';
-    }
-    
-    document.getElementById('btn-cancelar-pedido').classList.remove('hidden');
-    atualizarTextoBotaoSalvar('editando');
-    
-    // Status
-    if (pedido.status) {
-        const selectStatus = document.getElementById('select-status');
-        if (selectStatus) selectStatus.value = pedido.status;
-        window.selecionarStatus(pedido.status);
-    }
-    
-    // Frete
-    if (pedido.frete) {
-        document.getElementById('input-km').value = pedido.frete.distancia || '0';
-        document.getElementById('input-litro').value = pedido.frete.preco_combustivel || '4.20';
-        document.getElementById('input-consumo').value = pedido.frete.consumo || '9.0';
-        
-        let pedagio = pedido.frete.pedagio || 0;
-        document.getElementById('input-pedagio').value = pedagio.toFixed(2).replace('.', ',');
-        
-        if (pedido.frete.custo_combustivel) {
-            document.getElementById('custo-combustivel').innerText = pedido.frete.custo_combustivel;
-        }
-        if (pedido.frete.custo_total) {
-            document.getElementById('custo-total-frete').innerText = pedido.frete.custo_total;
-        }
-    }
-    
-    // Descontos e acréscimos
-    if (pedido.desconto) document.getElementById('input-desconto').value = pedido.desconto;
-    if (pedido.acrescimo) document.getElementById('input-acrescimo').value = pedido.acrescimo.toFixed(2).replace('.', ',');
-    if (pedido.motivo_acrescimo) document.getElementById('input-motivo-acrescimo').value = pedido.motivo_acrescimo;
-    
-    // Condições de pagamento
-    if (pedido.condicao_pagamento) {
-        document.getElementById('select-condicao-pagamento').value = pedido.condicao_pagamento;
-        if (pedido.condicao_pagamento === 'Personalizado') {
-            document.getElementById('div-parcelas-personalizado').classList.remove('hidden');
-        }
-    }
-    
-    if (pedido.primeiro_vencimento) {
-        document.getElementById('input-primeiro-vencimento').value = pedido.primeiro_vencimento;
-    }
-    
-    // ==========================================
-    // LIMPAR TABELA DE ITENS
-    // ==========================================
-    const tbody = document.getElementById('tabela-itens');
-    tbody.innerHTML = ''; // Limpa tudo
-    
-    // ==========================================
-    // ADICIONAR TODOS OS ITENS DO PEDIDO
-    // ==========================================
-    if (pedido.itens && pedido.itens.length > 0) {
-        console.log(`📦 Carregando ${pedido.itens.length} itens do pedido`);
-        
-        pedido.itens.forEach((item, index) => {
-            console.log(`Item ${index + 1}:`, item);
+            const cliente = window.bancoClientes.find(c => c.id === pedido.cliente_id);
             
-            const tr = document.createElement('tr'); 
-            tr.className = 'text-sm';
+            // Preenche dados básicos
+            document.getElementById('pedido-id-atual').value = pedido.id;
+            document.getElementById('input-cliente').value = pedido.cliente_nome || '';
+            document.getElementById('pdf-n-display').innerText = '#' + (pedido.numero_sequencial?.toString().padStart(3,'0') || '???');
             
-            // Cria select com ID único
-            const selectId = 'produto-select-' + Date.now() + '-' + index + '-' + Math.random().toString(36).substr(2, 5);
+            // Mostra dados do cliente
+            if (cliente) {
+                document.getElementById('cliente-telefone').innerText = cliente.telefone || '-';
+                document.getElementById('cliente-documento').innerText = cliente.documento || '-';
+                document.getElementById('cliente-endereco').innerText = cliente.endereco || '-';
+                document.getElementById('cliente-cep').innerText = cliente.cep || '-';
+                document.getElementById('dados-cliente-container').classList.remove('hidden');
+                document.getElementById('input-endereco').value = cliente.endereco || '';
+            }
             
-            let selectHtml = `<select id="${selectId}" class="w-full p-1 border rounded desc-item border-blue-300 focus:ring-2 focus:ring-blue-500 bg-gray-50 produto-select" style="width: 100%;" onchange="window.preencherProduto(this)">`;
-            selectHtml += '<option value="">Selecione um produto</option>';
+            document.getElementById('btn-cancelar-pedido').classList.remove('hidden');
+            atualizarTextoBotaoSalvar('editando');
             
-            window.bancoProdutos.forEach(p => {
-                const selected = p.descricao === item.descricao ? 'selected' : '';
-                selectHtml += `<option value="${p.descricao}" data-valor="${p.valor_base}" data-forn="${p.fornecedor || ''}" ${selected}>${p.descricao} - ${formatarValorReais(p.valor_base)}</option>`;
-            });
+            // Status
+            if (pedido.status) {
+                const selectStatus = document.getElementById('select-status');
+                if (selectStatus) selectStatus.value = pedido.status;
+                window.selecionarStatus(pedido.status);
+            }
             
-            selectHtml += '</select>';
+            // Frete
+            if (pedido.frete) {
+                document.getElementById('input-km').value = pedido.frete.distancia || '0';
+                document.getElementById('input-litro').value = pedido.frete.preco_combustivel || '4.20';
+                document.getElementById('input-consumo').value = pedido.frete.consumo || '9.0';
+                
+                let pedagio = pedido.frete.pedagio || 0;
+                document.getElementById('input-pedagio').value = pedagio.toFixed(2).replace('.', ',');
+                
+                if (pedido.frete.custo_combustivel) {
+                    document.getElementById('custo-combustivel').innerText = pedido.frete.custo_combustivel;
+                }
+                if (pedido.frete.custo_total) {
+                    document.getElementById('custo-total-frete').innerText = pedido.frete.custo_total;
+                }
+            }
             
-            tr.innerHTML = `
-                <td class="p-2 border"><input type="number" value="${item.quantidade || 1}" class="w-16 p-1 border rounded qtd-item" onchange="calcularTudo()"></td>
-                <td class="p-2 border">${selectHtml}</td>
-                <td class="p-2 border"><input type="text" value="${item.fornecedor || ''}" class="w-full p-1 border rounded forn-item bg-gray-100" readonly></td>
-                <td class="p-2 border"><input type="text" value="${item.valor_unitario || 'R$ 0,00'}" class="w-24 p-1 border rounded valor-item bg-gray-100 text-right" readonly></td>
-                <td class="p-2 border total-linha">R$ 0,00</td>
-                <td class="p-2 border text-center"><button onclick="if(podeEditarPedido()) { this.closest('tr').remove(); calcularTudo(); } else { alert('❌ Não é possível remover itens de um pedido em andamento!'); }" class="text-red-500 font-bold">X</button></td>
-            `;
+            // Descontos e acréscimos
+            if (pedido.desconto) document.getElementById('input-desconto').value = pedido.desconto;
+            if (pedido.acrescimo) document.getElementById('input-acrescimo').value = pedido.acrescimo.toFixed(2).replace('.', ',');
+            if (pedido.motivo_acrescimo) document.getElementById('input-motivo-acrescimo').value = pedido.motivo_acrescimo;
             
-            tbody.appendChild(tr); // Adiciona no final
-        });
-    }
-    
-    // ==========================================
-    // ADICIONAR LINHA DE ADICIONAR NOVO ITEM
-    // ==========================================
-    const linhaAdicionar = document.createElement('tr');
-    linhaAdicionar.className = 'text-sm';
-    linhaAdicionar.id = 'linha-adicionar';
-    linhaAdicionar.innerHTML = `
-        <td class="p-2 border bg-gray-50 text-center" colspan="6">
-            <button onclick="adicionarLinha()" class="text-blue-600 font-semibold hover:underline w-full py-2">
-                + Adicionar Item
-            </button>
-        </td>
-    `;
-    tbody.appendChild(linhaAdicionar);
-    
-    // ==========================================
-    // INICIALIZAR SELECT2 EM TODOS OS SELECTS
-    // ==========================================
-    setTimeout(() => {
-        document.querySelectorAll('.produto-select').forEach(select => {
-            if ($.fn.select2) {
-                $(select).select2({
-                    placeholder: "Busque um produto...",
-                    allowClear: true,
-                    width: '100%'
+            // Condições de pagamento
+            if (pedido.condicao_pagamento) {
+                document.getElementById('select-condicao-pagamento').value = pedido.condicao_pagamento;
+                if (pedido.condicao_pagamento === 'Personalizado') {
+                    document.getElementById('div-parcelas-personalizado').classList.remove('hidden');
+                }
+            }
+            
+            if (pedido.primeiro_vencimento) {
+                document.getElementById('input-primeiro-vencimento').value = pedido.primeiro_vencimento;
+            }
+            
+            // Itens
+            const tbody = document.getElementById('tabela-itens');
+            tbody.innerHTML = '<tr id="linha-adicionar"><td colspan="6" class="text-center p-2"><button onclick="adicionarLinha()" class="text-blue-600 font-bold">+ Adicionar Item</button></td></tr>';
+            
+            if (pedido.itens && pedido.itens.length > 0) {
+                pedido.itens.forEach(item => {
+                    const tr = document.createElement('tr'); 
+                    tr.className = 'text-sm';
+                    
+                    let selectHtml = '<select class="w-full p-1 border rounded desc-item border-blue-300 focus:ring-2 focus:ring-blue-500 bg-gray-50" onchange="window.preencherProduto(this)">';
+                    selectHtml += '<option value="">Selecione um produto</option>';
+                    window.bancoProdutos.forEach(p => {
+                        const selected = p.descricao === item.descricao ? 'selected' : '';
+                        selectHtml += `<option value="${p.descricao}" data-valor="${p.valor_base}" data-forn="${p.fornecedor || ''}" ${selected}>${p.descricao} - ${formatarValorReais(p.valor_base)}</option>`;
+                    });
+                    selectHtml += '</select>';
+                    
+                    tr.innerHTML = `
+                        <td class="p-2 border"><input type="number" value="${item.quantidade || 1}" class="w-16 p-1 border rounded qtd-item" onchange="calcularTudo()"></td>
+                        <td class="p-2 border">${selectHtml}</td>
+                        <td class="p-2 border"><input type="text" value="${item.fornecedor || ''}" class="w-full p-1 border rounded forn-item bg-gray-100" readonly></td>
+                        <td class="p-2 border"><input type="text" value="${item.valor_unitario || 'R$ 0,00'}" class="w-24 p-1 border rounded valor-item bg-gray-100 text-right" readonly></td>
+                        <td class="p-2 border total-linha">R$ 0,00</td>
+                        <td class="p-2 border text-center"><button onclick="if(podeEditarPedido()) { this.closest('tr').remove(); calcularTudo(); } else { alert('❌ Não é possível remover itens de um pedido em andamento!'); }" class="text-red-500 font-bold">X</button></td>
+                    `;
+                    tbody.insertBefore(tr, document.getElementById('linha-adicionar'));
                 });
             }
-        });
-    }, 100);
-    
-    mostrarAba('aba-cadastro');
-    calcularTudo();
-};
-
-
-
-
-
+            
+            mostrarAba('aba-cadastro');
+            calcularTudo();
+        };
 
         window.editarCliente = function(id, nome, telefone, documento, endereco, cep) {
             document.getElementById('cli-id').value = id;
@@ -2406,6 +2165,10 @@ window.abrirPedidoParaEdicao = function(id) {
                 await deleteDoc(doc(db,"produtos",id)); 
                 carregarMemoriaBanco(); 
             } 
+        };
+
+        window.preencherCliente = function() {
+            window.carregarDadosCliente();
         };
 
         window.filtrarPedidos = (t) => { 
