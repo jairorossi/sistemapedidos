@@ -8,7 +8,6 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     
     <script>
-        // Alternar abas
         function mostrarAba(abaId) {
             document.getElementById('aba-cadastro').classList.add('hidden');
             document.getElementById('aba-logistica').classList.add('hidden');
@@ -19,7 +18,6 @@
             document.getElementById('btn-' + abaId.split('-')[1]).classList.add('bg-gray-700');
         }
 
-        // Adicionar nova linha na tabela
         function adicionarLinha() {
             const tbody = document.getElementById('tabela-itens');
             const novaLinha = document.createElement('tr');
@@ -40,7 +38,6 @@
             tbody.insertBefore(novaLinha, document.getElementById('linha-adicionar'));
         }
 
-        // Calcular TODOS os valores
         function calcularTudo() {
             const linhas = document.querySelectorAll('#tabela-itens tr:not(#linha-adicionar)');
             let subtotal = 0;
@@ -89,27 +86,21 @@
             }
 
             document.getElementById('display-total').innerText = 'Total: R$ ' + totalGeral.toFixed(2).replace('.', ',');
-            
-            // Salva o total geral em um atributo escondido para o PDF usar depois
             document.getElementById('btn-gerar-pdf').setAttribute('data-total', totalGeral.toFixed(2).replace('.', ','));
         }
 
-        // GERAR O PDF A4
         function gerarPDF() {
-            // 1. Coleta os dados da tela
             const nomeCliente = document.getElementById('input-cliente').value || 'Cliente_Nao_Identificado';
             const endereco = document.getElementById('input-endereco').value || 'Não informado';
             const previsao = document.getElementById('input-previsao').value || 'A combinar';
             const total = document.getElementById('btn-gerar-pdf').getAttribute('data-total') || '0,00';
             
-            // 2. Preenche o template invisível do PDF
             document.getElementById('pdf-cliente').innerText = nomeCliente;
             document.getElementById('pdf-endereco').innerText = endereco;
             document.getElementById('pdf-data').innerText = new Date().toLocaleDateString('pt-BR');
             document.getElementById('pdf-previsao').innerText = previsao;
             document.getElementById('pdf-total').innerText = 'R$ ' + total;
 
-            // 3. Monta a tabela de itens no PDF
             const linhasTr = document.querySelectorAll('#tabela-itens tr:not(#linha-adicionar)');
             let htmlTabela = '';
             linhasTr.forEach(linha => {
@@ -127,9 +118,8 @@
             });
             document.getElementById('pdf-corpo-tabela').innerHTML = htmlTabela;
 
-            // 4. Configura e gera o PDF
             const elemento = document.getElementById('layout-impressao');
-            elemento.classList.remove('hidden'); // Mostra rapidinho para "bater a foto"
+            elemento.classList.remove('hidden');
 
             const opcoes = {
                 margin:       10,
@@ -139,13 +129,12 @@
                 jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
             };
 
-            // Muda o texto do botão para dar feedback ao usuário
             const btn = document.getElementById('btn-gerar-pdf');
             const textoOriginal = btn.innerHTML;
             btn.innerHTML = 'Gerando PDF...';
 
             html2pdf().set(opcoes).from(elemento).save().then(() => {
-                elemento.classList.add('hidden'); // Esconde de novo
+                elemento.classList.add('hidden');
                 btn.innerHTML = textoOriginal;
             });
         }
@@ -294,7 +283,56 @@
 
         <div id="aba-logistica" class="hidden space-y-6">
             <h2 class="text-2xl md:text-3xl font-bold text-gray-800 border-b pb-2">Gestão de Logística</h2>
-            <p class="text-gray-600">Interface de logística ativa...</p>
+            
+            <div class="bg-white p-4 md:p-6 rounded-lg shadow-sm">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-2">
+                    <h3 class="text-lg font-semibold text-gray-700">Montar Romaneio de Entrega</h3>
+                    <div class="text-sm bg-yellow-100 text-yellow-800 px-3 py-1 rounded w-full md:w-auto text-center">
+                        Rotas baseadas na frota própria
+                    </div>
+                </div>
+                
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse min-w-[700px]">
+                        <thead>
+                            <tr class="bg-gray-100 text-gray-600 text-sm">
+                                <th class="p-2 border">Incluir</th>
+                                <th class="p-2 border">Pedido</th>
+                                <th class="p-2 border">Cliente</th>
+                                <th class="p-2 border">Status</th>
+                                <th class="p-2 border">Ação WhatsApp</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr class="text-sm hover:bg-gray-50">
+                                <td class="p-2 border text-center"><input type="checkbox" checked></td>
+                                <td class="p-2 border font-bold">#781</td>
+                                <td class="p-2 border whitespace-nowrap">Marcelo Garutti</td>
+                                <td class="p-2 border whitespace-nowrap"><span class="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs">Em Entrega</span></td>
+                                <td class="p-2 border">
+                                    <button class="text-xs bg-green-500 text-white px-2 py-1 rounded hover:bg-green-600 whitespace-nowrap">
+                                        📲 Avisar Saída (Final 9497)
+                                    </button>
+                                </td>
+                            </tr>
+                            <tr class="text-sm hover:bg-gray-50">
+                                <td class="p-2 border text-center"><input type="checkbox"></td>
+                                <td class="p-2 border font-bold">#782</td>
+                                <td class="p-2 border whitespace-nowrap">Obra Denilson</td>
+                                <td class="p-2 border whitespace-nowrap"><span class="bg-orange-100 text-orange-800 px-2 py-1 rounded text-xs">Em Produção</span></td>
+                                <td class="p-2 border">
+                                    <button class="text-xs bg-green-500 text-white px-2 py-1 rounded hover:bg-green-600 whitespace-nowrap">
+                                        📲 Avisar Início (Final 9797)
+                                    </button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="mt-4 flex justify-end">
+                    <button class="w-full md:w-auto bg-gray-800 text-white font-bold py-2 px-6 rounded hover:bg-gray-900">Gerar Roteiro no Mapa</button>
+                </div>
+            </div>
         </div>
 
     </main>
@@ -338,7 +376,7 @@
                     </tr>
                 </thead>
                 <tbody id="pdf-corpo-tabela" class="text-sm">
-                    </tbody>
+                </tbody>
             </table>
         </div>
 
@@ -358,5 +396,5 @@
             </div>
         </div>
     </div>
-    </body>
+</body>
 </html>
