@@ -8,15 +8,34 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     
     <style>
-        /* Estilo para o card de cliente */
         .cliente-card {
             background: linear-gradient(to right, #f9fafb, #ffffff);
             border-left: 4px solid #3b82f6;
         }
-        /* Estilo para mensagens de status do CEP */
         .status-sucesso { color: #059669; }
         .status-erro { color: #dc2626; }
         .status-consultando { color: #2563eb; }
+        
+        /* Estilo para cards financeiros */
+        .financeiro-card {
+            transition: all 0.2s;
+        }
+        .financeiro-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1);
+        }
+        .atrasado {
+            background-color: #fee2e2;
+            border-left: 4px solid #dc2626;
+        }
+        .a-vencer {
+            background-color: #fef3c7;
+            border-left: 4px solid #f59e0b;
+        }
+        .pago {
+            background-color: #d1fae5;
+            border-left: 4px solid #10b981;
+        }
     </style>
     
     <script>
@@ -25,13 +44,18 @@
         // ==========================================
         
         function mostrarAba(abaId) {
-            const abas = ['aba-cadastro', 'aba-clientes', 'aba-produtos', 'aba-logistica'];
+            const abas = ['aba-cadastro', 'aba-clientes', 'aba-produtos', 'aba-logistica', 'aba-financeiro'];
             abas.forEach(aba => document.getElementById(aba).classList.add('hidden'));
             document.getElementById(abaId).classList.remove('hidden');
             
-            const botoes = ['btn-cadastro', 'btn-clientes', 'btn-produtos', 'btn-logistica'];
+            const botoes = ['btn-cadastro', 'btn-clientes', 'btn-produtos', 'btn-logistica', 'btn-financeiro'];
             botoes.forEach(btn => document.getElementById(btn).classList.remove('bg-gray-700'));
             document.getElementById('btn-' + abaId.split('-')[1]).classList.add('bg-gray-700');
+            
+            // Se for aba financeiro, atualiza os dados
+            if (abaId === 'aba-financeiro') {
+                atualizarDashboardFinanceiro();
+            }
         }
 
         function adicionarLinha() {
@@ -64,28 +88,20 @@
             return !statusBloqueados.includes(statusAtual);
         }
 
-        // ==========================================
-        // FUNÇÃO PARA FORMATAR CAMPO DE PEDÁGIO
-        // ==========================================
         function formatarMoeda(input) {
             let valor = input.value.replace(/[^\d,]/g, '');
-            
-            // Garante que só tenha uma vírgula
             let partes = valor.split(',');
             if (partes.length > 2) {
                 valor = partes[0] + ',' + partes.slice(1).join('');
             }
-            
-            // Limita a 2 casas decimais
             if (partes.length > 1 && partes[1].length > 2) {
                 valor = partes[0] + ',' + partes[1].substring(0, 2);
             }
-            
             input.value = valor;
         }
 
         // ==========================================
-        // FUNÇÕES DE CÁLCULO (MANUAL)
+        // FUNÇÕES DE CÁLCULO
         // ==========================================
         
         function calcularTudo() {
@@ -106,38 +122,24 @@
             const valorDesconto = subtotal * (pctDesconto / 100);
             const subtotalComDesconto = subtotal - valorDesconto;
 
-            // ==========================================
-            // CÁLCULO MANUAL DO FRETE
-            // ==========================================
             const km = parseFloat(document.getElementById('input-km').value) || 0;
             const precoCombustivel = parseFloat(document.getElementById('input-litro').value) || 4.20;
             const consumo = parseFloat(document.getElementById('input-consumo').value) || 9.0;
             
-            // Cálculo do combustível
             const custoCombustivel = km > 0 ? (km / consumo) * precoCombustivel : 0;
             
-            // Pega valor do pedágio (digitado manualmente)
             let pedagio = 0;
             const pedagioInput = document.getElementById('input-pedagio').value;
             if (pedagioInput) {
-                // Remove R$, espaços e troca vírgula por ponto
                 let valorLimpo = pedagioInput.replace(/[R$\s]/g, '').replace(',', '.');
                 pedagio = parseFloat(valorLimpo) || 0;
             }
             
-            // Frete total
             const frete = custoCombustivel + pedagio;
             
-            // ==========================================
-            // ATUALIZA OS ELEMENTOS VISUAIS
-            // ==========================================
-            
-            // Atualiza os spans de resultado
             document.getElementById('custo-combustivel').innerText = 'R$ ' + custoCombustivel.toFixed(2).replace('.', ',');
             document.getElementById('custo-pedagio').innerText = 'R$ ' + pedagio.toFixed(2).replace('.', ',');
             document.getElementById('custo-total-frete').innerText = 'R$ ' + frete.toFixed(2).replace('.', ',');
-            
-            // Atualiza o campo oculto para compatibilidade
             document.getElementById('display-frete-estimado').value = 'R$ ' + frete.toFixed(2).replace('.', ',');
 
             const formaPgto = document.getElementById('select-pagamento').value;
@@ -188,65 +190,65 @@
                 
                 if(desc.trim() !== '') {
                     linhasHtml += `
-                        <tr style="border-bottom: 1px solid #eee;">
-                            <td style="padding: 10px; text-align: center;">${qtd}</td>
-                            <td style="padding: 10px;">${desc}</td>
-                            <td style="padding: 10px; text-align: right; font-weight: bold;">${total}</td>
+                        <tr style="border-bottom: 1px solid #ddd;">
+                            <td style="padding: 8px; text-align: center; border: 1px solid #ddd;">${qtd}</td>
+                            <td style="padding: 8px; border: 1px solid #ddd;">${desc}</td>
+                            <td style="padding: 8px; text-align: right; font-weight: bold; border: 1px solid #ddd;">${total}</td>
                         </tr>`;
                 }
             });
 
             const conteudoCompleto = `
-                <div style="padding: 40px; font-family: Arial, sans-serif; color: #333; line-height: 1.5;">
-                    <div style="display: flex; justify-content: space-between; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 20px;">
+                <div style="padding: 30px; font-family: Arial, sans-serif; color: #333; line-height: 1.4; max-width: 800px; margin: 0 auto;">
+                    <div style="display: flex; justify-content: space-between; border-bottom: 2px solid #999; padding-bottom: 10px; margin-bottom: 20px;">
                         <div>
-                            <h1 style="margin: 0; font-size: 24px;">MPLEÃO</h1>
-                            <p style="margin: 0; font-size: 12px; color: #666;">Serralheria & Vidraçaria</p>
+                            <h1 style="margin: 0; font-size: 24px; color: #333;">MPLEÃO</h1>
+                            <p style="margin: 0; font-size: 11px; color: #666;">Serralheria & Vidraçaria</p>
                         </div>
                         <div style="text-align: right;">
-                            <h2 style="margin: 0; font-size: 18px;">PEDIDO ${numeroExibicao}</h2>
-                            <p style="margin: 0; font-size: 12px;">Data: ${dataAtual}</p>
+                            <h2 style="margin: 0; font-size: 18px; color: #333;">PEDIDO ${numeroExibicao}</h2>
+                            <p style="margin: 0; font-size: 11px; color: #666;">Data: ${dataAtual}</p>
                         </div>
                     </div>
 
-                    <div style="background: #f4f4f4; padding: 15px; border-radius: 5px; margin-bottom: 20px; font-size: 13px;">
-                        <p><strong>Cliente:</strong> ${cliente}</p>
-                        <p><strong>Endereço:</strong> ${endereco}</p>
-                        <p><strong>Previsão de Entrega:</strong> ${previsao}</p>
+                    <div style="background: #f5f5f5; padding: 15px; border-radius: 5px; margin-bottom: 25px; font-size: 13px; border: 1px solid #ddd;">
+                        <p style="margin: 5px 0;"><strong>Cliente:</strong> ${cliente}</p>
+                        <p style="margin: 5px 0;"><strong>Endereço:</strong> ${endereco}</p>
+                        <p style="margin: 5px 0;"><strong>Previsão de Entrega:</strong> ${previsao}</p>
                     </div>
 
-                    <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px; font-size: 13px;">
+                    <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px; font-size: 13px; border: 1px solid #ddd;">
                         <thead>
-                            <tr style="background: #333; color: #fff; text-align: left;">
-                                <th style="padding: 10px; width: 50px; text-align: center;">Qtd</th>
-                                <th style="padding: 10px;">Descrição</th>
-                                <th style="padding: 10px; width: 120px; text-align: right;">Total</th>
+                            <tr style="background: #e0e0e0; color: #333; text-align: left;">
+                                <th style="padding: 10px; border: 1px solid #ddd; width: 50px; text-align: center;">Qtd</th>
+                                <th style="padding: 10px; border: 1px solid #ddd;">Descrição</th>
+                                <th style="padding: 10px; border: 1px solid #ddd; width: 120px; text-align: right;">Total</th>
                             </tr>
                         </thead>
                         <tbody>
-                            ${linhasHtml}
+                            ${linhasHtml || '<tr><td colspan="3" style="padding: 20px; text-align: center; border: 1px solid #ddd; color: #666;">Nenhum item adicionado</td></tr>'}
                         </tbody>
                     </table>
 
                     <div style="text-align: right; margin-bottom: 50px;">
-                        <div style="display: inline-block; background: #333; color: #fff; padding: 15px; border-radius: 5px;">
-                            <span style="font-size: 10px; text-transform: uppercase; display: block;">Total a Pagar</span>
-                            <strong style="font-size: 20px;">R$ ${totalGeral}</strong>
+                        <div style="display: inline-block; background: #f0f0f0; padding: 15px 25px; border-radius: 5px; border: 1px solid #999;">
+                            <span style="font-size: 11px; text-transform: uppercase; display: block; color: #666;">Total a Pagar</span>
+                            <strong style="font-size: 22px; color: #000;">R$ ${totalGeral}</strong>
                         </div>
                     </div>
 
-                    <div style="margin-top: 100px; display: flex; justify-content: space-between;">
-                        <div style="width: 40%; border-top: 1px solid #333; text-align: center; padding-top: 5px; font-size: 11px;">Assinatura MPLEÃO</div>
-                        <div style="width: 40%; border-top: 1px solid #333; text-align: center; padding-top: 5px; font-size: 11px;">Assinatura do Cliente</div>
+                    <div style="margin-top: 80px; display: flex; justify-content: space-between;">
+                        <div style="width: 40%; border-top: 1px solid #999; text-align: center; padding-top: 8px; font-size: 11px; color: #666;">Assinatura MPLEÃO</div>
+                        <div style="width: 40%; border-top: 1px solid #999; text-align: center; padding-top: 8px; font-size: 11px; color: #666;">Assinatura do Cliente</div>
                     </div>
                 </div>
             `;
 
             const opcoes = {
-                margin: 0,
+                margin: 10,
                 filename: `Pedido_${cliente.replace(/\s+/g, '_')}.pdf`,
-                image: { type: 'jpeg', quality: 1.0 },
-                html2canvas: { scale: 2, logging: false },
+                image: { type: 'jpeg', quality: 0.95 },
+                html2canvas: { scale: 1.5, logging: false, letterRendering: true },
                 jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
             };
 
@@ -274,6 +276,8 @@
             <button id="btn-clientes" onclick="mostrarAba('aba-clientes')" class="text-sm md:text-base text-left p-3 rounded hover:bg-gray-600 transition">👥 Clientes</button>
             <button id="btn-produtos" onclick="mostrarAba('aba-produtos')" class="text-sm md:text-base text-left p-3 rounded hover:bg-gray-600 transition">🏷️ Produtos</button>
             <button id="btn-logistica" onclick="mostrarAba('aba-logistica')" class="text-sm md:text-base text-left p-3 rounded hover:bg-gray-600 transition">🚚 Painel de Pedidos</button>
+            <!-- NOVO: Botão Financeiro -->
+            <button id="btn-financeiro" onclick="mostrarAba('aba-financeiro')" class="text-sm md:text-base text-left p-3 rounded hover:bg-gray-600 transition">💰 Financeiro</button>
             <button onclick="window.fazerLogout()" class="mt-auto text-sm text-left p-3 text-red-400 hover:bg-gray-800 rounded transition font-bold">🚪 Encerrar Sessão</button>
         </nav>
     </aside>
@@ -284,17 +288,21 @@
         <div id="aba-cadastro" class="space-y-6">
             <div class="flex justify-between items-center border-b pb-2">
                 <h2 class="text-2xl md:text-3xl font-bold text-gray-800" id="titulo-aba-pedido">Pedido <span id="pdf-n-display"></span></h2>
-                <input type="hidden" id="pedido-id-atual" value="">
+                <div class="flex gap-2">
+                    <button id="btn-novo-pedido-topo" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition flex items-center gap-2 text-sm font-bold shadow-sm" onclick="window.novoPedido()">
+                        ➕ Novo Pedido
+                    </button>
+                    <input type="hidden" id="pedido-id-atual" value="">
+                </div>
             </div>
             
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <!-- ========== BLOCO CLIENTE ========== -->
+                <!-- BLOCO CLIENTE -->
                 <div class="bg-white p-4 md:p-6 rounded-lg shadow-sm cliente-card">
                     <h3 class="text-lg font-semibold mb-4 text-gray-700 flex items-center gap-2">
                         👤 Dados do Cliente
                     </h3>
                     
-                    <!-- Campo de busca de cliente -->
                     <div class="mb-4">
                         <label class="text-xs text-gray-500 mb-1 block">🔍 Selecione o Cliente</label>
                         <input type="text" 
@@ -305,7 +313,6 @@
                                onchange="window.carregarDadosCliente()">
                     </div>
                     
-                    <!-- Card com dados do cliente -->
                     <div id="dados-cliente-container" class="hidden space-y-3 p-4 bg-gray-50 rounded-lg border border-gray-200">
                         <div class="flex items-center gap-2 text-sm">
                             <span class="font-medium text-gray-600 w-24">Telefone:</span>
@@ -325,18 +332,16 @@
                         </div>
                     </div>
                     
-                    <!-- Campo oculto para endereço -->
                     <input type="hidden" id="input-endereco">
                 </div>
 
-                <!-- ========== BLOCO FRETE ========== -->
+                <!-- BLOCO FRETE -->
                 <div class="bg-white p-4 md:p-6 rounded-lg shadow-sm">
                     <h3 class="text-lg font-semibold mb-4 text-gray-700 flex items-center gap-2">
                         🚚 Cálculo de Frete (Manual)
                     </h3>
                     
                     <div class="space-y-4">
-                        <!-- KM -->
                         <div>
                             <label class="text-xs text-gray-500 mb-1 block">📏 Distância (KM)</label>
                             <input type="number" 
@@ -349,7 +354,6 @@
                                    placeholder="Ex: 200">
                         </div>
                         
-                        <!-- Preço do combustível -->
                         <div>
                             <label class="text-xs text-gray-500 mb-1 block">⛽ Preço do Combustível (R$)</label>
                             <input type="number" 
@@ -361,7 +365,6 @@
                                    onkeyup="calcularTudo()">
                         </div>
                         
-                        <!-- Consumo do veículo -->
                         <div>
                             <label class="text-xs text-gray-500 mb-1 block">⚡ Consumo (km/l)</label>
                             <input type="number" 
@@ -373,7 +376,6 @@
                                    onkeyup="calcularTudo()">
                         </div>
                         
-                        <!-- Pedágio (manual) -->
                         <div>
                             <label class="text-xs text-gray-500 mb-1 block">🛣️ Pedágio (R$)</label>
                             <input type="text" 
@@ -385,7 +387,6 @@
                                    placeholder="Ex: 25,50">
                         </div>
                         
-                        <!-- Resultados -->
                         <div class="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
                             <h4 class="text-sm font-semibold text-blue-800 mb-3">📊 Resultado do Frete</h4>
                             
@@ -411,12 +412,11 @@
                 </div>
             </div>
 
-            <!-- ========== CONTROLE DO PEDIDO ========== -->
+            <!-- CONTROLE DO PEDIDO -->
             <div class="bg-white p-4 md:p-6 rounded-lg shadow-sm">
                 <h3 class="text-lg font-semibold mb-4 text-gray-700">📋 Controle do Pedido</h3>
                 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <!-- Status e Progresso -->
                     <div>
                         <div class="mb-4 p-4 bg-gray-50 rounded-lg">
                             <div class="flex items-center justify-between mb-2">
@@ -460,20 +460,36 @@
                         </div>
                     </div>
                     
-                    <!-- Data e Financeiro -->
                     <div class="space-y-4">
                         <div>
                             <label class="text-xs text-gray-500">📅 Previsão de Entrega</label>
                             <input type="date" id="input-previsao" class="w-full p-2 border rounded bg-gray-50 mt-1">
                         </div>
                         
+                        <!-- NOVO: Condições de Pagamento -->
                         <div>
-                            <label class="text-xs text-gray-500">💰 Status Financeiro</label>
-                            <select id="select-financeiro" class="w-full p-2 border rounded bg-gray-50 mt-1">
-                                <option value="A Receber">A Receber</option>
-                                <option value="Pago">Pago</option>
-                                <option value="Parcial">Pagamento Parcial</option>
+                            <label class="text-xs text-gray-500">💰 Condição de Pagamento</label>
+                            <select id="select-condicao-pagamento" class="w-full p-2 border rounded bg-gray-50 mt-1" onchange="atualizarParcelas()">
+                                <option value="Vista">À Vista</option>
+                                <option value="2x">2x sem juros</option>
+                                <option value="3x">3x sem juros</option>
+                                <option value="4x">4x sem juros</option>
+                                <option value="5x">5x sem juros</option>
+                                <option value="6x">6x sem juros</option>
+                                <option value="Personalizado">Personalizado</option>
                             </select>
+                        </div>
+                        
+                        <!-- NOVO: Número de parcelas (aparece se personalizado) -->
+                        <div id="div-parcelas-personalizado" class="hidden">
+                            <label class="text-xs text-gray-500">Número de Parcelas</label>
+                            <input type="number" id="input-parcelas" value="1" min="1" max="24" class="w-full p-2 border rounded bg-gray-50 mt-1" onchange="atualizarParcelas()">
+                        </div>
+                        
+                        <!-- NOVO: Primeiro vencimento -->
+                        <div>
+                            <label class="text-xs text-gray-500">📆 Primeiro Vencimento</label>
+                            <input type="date" id="input-primeiro-vencimento" class="w-full p-2 border rounded bg-gray-50 mt-1">
                         </div>
                         
                         <div>
@@ -482,6 +498,8 @@
                                 <option value="Pix">Pix</option>
                                 <option value="Dinheiro">Dinheiro</option>
                                 <option value="Cartão de Crédito">Cartão de Crédito</option>
+                                <option value="Boleto">Boleto</option>
+                                <option value="Transferência">Transferência</option>
                             </select>
                         </div>
                         
@@ -490,7 +508,7 @@
                 </div>
             </div>
 
-            <!-- ========== TABELA DE ITENS ========== -->
+            <!-- TABELA DE ITENS -->
             <div class="bg-white p-4 md:p-6 rounded-lg shadow-sm">
                 <h3 class="text-lg font-semibold mb-4 text-gray-700">🛒 Itens do Pedido</h3>
                 <div class="overflow-x-auto">
@@ -522,10 +540,9 @@
                 </div>
             </div>
 
-            <!-- ========== RODAPÉ COM BOTÕES ========== -->
+            <!-- RODAPÉ COM BOTÕES -->
             <div class="bg-white p-4 md:p-6 rounded-lg shadow-sm">
                 <div class="flex flex-col md:flex-row justify-between items-start gap-6">
-                    <!-- Desconto -->
                     <div class="w-full md:w-1/2">
                         <h3 class="text-lg font-semibold mb-4 text-gray-700">🏷️ Desconto</h3>
                         <div class="w-1/2">
@@ -534,7 +551,6 @@
                         </div>
                     </div>
                     
-                    <!-- Totais e Botões -->
                     <div class="w-full md:w-1/3 bg-gray-50 p-4 rounded border">
                         <p class="text-gray-500" id="display-subtotal">Subtotal: R$ 0,00</p>
                         <p class="text-green-600 font-medium" id="display-desconto">Desconto: - R$ 0,00</p>
@@ -544,23 +560,14 @@
                             <p class="text-2xl font-bold text-gray-800" id="display-total">Total: R$ 0,00</p>
                         </div>
                         
-                        <!-- Botões de ação -->
+                        <!-- Botões -->
                         <div class="flex flex-col gap-2">
-                            <!-- Botão Novo Pedido -->
-                            <button id="btn-novo-pedido" class="w-full bg-blue-600 text-white font-bold py-2 rounded hover:bg-blue-700 transition flex items-center justify-center gap-2" onclick="window.novoPedido()">
-                                ➕ Novo Pedido
-                            </button>
-                            
-                            <!-- Botão Cancelar Edição -->
                             <button id="btn-cancelar-pedido" class="hidden w-full bg-gray-500 text-white font-bold py-2 rounded hover:bg-gray-600 transition" onclick="window.cancelarEdicao()">
                                 ❌ Cancelar Edição
                             </button>
-                            
-                            <!-- Botão Salvar -->
                             <button id="btn-salvar" class="w-full bg-green-600 text-white font-bold py-2 rounded hover:bg-green-700 transition">
                                 📦 Salvar Pedido
                             </button>
-                            
                             <button id="btn-gerar-pdf" onclick="gerarPDF()" data-total="0,00" class="w-full bg-gray-800 text-white font-bold py-2 rounded hover:bg-gray-900 border border-gray-700 shadow-sm">
                                 🖨️ Imprimir PDF
                             </button>
@@ -569,7 +576,6 @@
                 </div>
             </div>
             
-            <!-- Aviso de bloqueio -->
             <div id="aviso-bloqueio" class="hidden bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 rounded" role="alert">
                 <p class="font-bold">⚠️ Pedido bloqueado para edição</p>
                 <p>Este pedido está em <span id="status-bloqueio"></span> e não pode ser alterado. Apenas visualização permitida.</p>
@@ -582,7 +588,6 @@
             <div class="bg-white p-4 md:p-6 rounded-lg shadow-sm">
                 <h3 class="text-lg font-semibold mb-4 text-gray-700" id="titulo-form-cliente">Novo Cliente</h3>
                 
-                <!-- Formulário de Cliente -->
                 <div class="space-y-4 max-w-2xl">
                     <input type="hidden" id="cli-id" value="">
                     
@@ -602,7 +607,6 @@
                         </div>
                     </div>
                     
-                    <!-- CEP -->
                     <div>
                         <label class="text-sm text-gray-600">CEP</label>
                         <div class="flex gap-2">
@@ -621,7 +625,6 @@
                         <p id="cep-status-cadastro" class="text-xs mt-1 text-gray-500"></p>
                     </div>
                     
-                    <!-- Endereço -->
                     <div>
                         <label class="text-sm text-gray-600">Endereço Completo</label>
                         <input type="text" id="cli-endereco" class="w-full p-2 border rounded bg-gray-50" placeholder="Rua, número, bairro, cidade/UF">
@@ -633,7 +636,6 @@
                     </div>
                 </div>
                 
-                <!-- Lista de Clientes -->
                 <div class="mt-8 border-t pt-6">
                     <div class="flex justify-between items-center mb-4">
                         <h3 class="text-lg font-semibold text-gray-700">Clientes Cadastrados</h3>
@@ -728,13 +730,122 @@
                                 <th class="p-2 border-r">Cliente</th>
                                 <th class="p-2 border-r">Status</th>
                                 <th class="p-2 border-r">Valor</th>
+                                <th class="p-2 border-r">Condição</th>
                                 <th class="p-2">Ações</th>
                             </tr>
                         </thead>
                         <tbody id="tabela-pedidos" class="text-sm">
-                            <tr><td colspan="6" class="p-4 text-center text-gray-500">Carregando...</td></tr>
+                            <tr><td colspan="7" class="p-4 text-center text-gray-500">Carregando...</td></tr>
                         </tbody>
                     </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========== NOVA ABA 5 - FINANCEIRO ========== -->
+        <div id="aba-financeiro" class="hidden space-y-6">
+            <h2 class="text-2xl md:text-3xl font-bold text-gray-800 border-b pb-2">💰 Módulo Financeiro</h2>
+            
+            <!-- Cards de Resumo -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div class="bg-white p-4 rounded-lg shadow-sm financeiro-card border-l-4 border-blue-500">
+                    <p class="text-xs text-gray-500 uppercase">Total a Receber</p>
+                    <p class="text-2xl font-bold text-gray-800" id="total-a-receber">R$ 0,00</p>
+                    <p class="text-xs text-gray-400">Todos os pedidos</p>
+                </div>
+                
+                <div class="bg-white p-4 rounded-lg shadow-sm financeiro-card border-l-4 border-yellow-500">
+                    <p class="text-xs text-gray-500 uppercase">A Vencer</p>
+                    <p class="text-2xl font-bold text-gray-800" id="total-a-vencer">R$ 0,00</p>
+                    <p class="text-xs text-gray-400">Próximos 30 dias</p>
+                </div>
+                
+                <div class="bg-white p-4 rounded-lg shadow-sm financeiro-card border-l-4 border-red-500">
+                    <p class="text-xs text-gray-500 uppercase">Em Atraso</p>
+                    <p class="text-2xl font-bold text-red-600" id="total-atrasado">R$ 0,00</p>
+                    <p class="text-xs text-gray-400">Clientes inadimplentes</p>
+                </div>
+                
+                <div class="bg-white p-4 rounded-lg shadow-sm financeiro-card border-l-4 border-green-500">
+                    <p class="text-xs text-gray-500 uppercase">Recebido no Mês</p>
+                    <p class="text-2xl font-bold text-green-600" id="total-recebido-mes">R$ 0,00</p>
+                    <p class="text-xs text-gray-400">Este mês</p>
+                </div>
+            </div>
+            
+            <!-- Filtros -->
+            <div class="bg-white p-4 rounded-lg shadow-sm">
+                <div class="flex flex-col md:flex-row justify-between items-center gap-4">
+                    <div class="flex gap-2">
+                        <select id="filtro-status-financeiro" class="p-2 border rounded text-sm">
+                            <option value="todos">Todos os status</option>
+                            <option value="A Receber">A Receber</option>
+                            <option value="Pago">Pago</option>
+                            <option value="Parcial">Parcial</option>
+                            <option value="atrasado">Em atraso</option>
+                        </select>
+                        <select id="filtro-cliente-financeiro" class="p-2 border rounded text-sm">
+                            <option value="todos">Todos os clientes</option>
+                        </select>
+                    </div>
+                    <div>
+                        <input type="text" placeholder="🔍 Buscar..." class="p-2 border rounded w-64 text-sm" onkeyup="filtrarFinanceiro(this.value)">
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Tabela de Parcelas -->
+            <div class="bg-white p-4 md:p-6 rounded-lg shadow-sm">
+                <h3 class="text-lg font-semibold mb-4 text-gray-700">📋 Contas a Receber</h3>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse min-w-[1000px]">
+                        <thead>
+                            <tr class="bg-gray-100 text-gray-600 text-sm">
+                                <th class="p-2 border">Cliente</th>
+                                <th class="p-2 border">Pedido</th>
+                                <th class="p-2 border">Parcela</th>
+                                <th class="p-2 border">Vencimento</th>
+                                <th class="p-2 border">Valor</th>
+                                <th class="p-2 border">Status</th>
+                                <th class="p-2 border">Dias</th>
+                                <th class="p-2 border">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabela-financeiro" class="text-sm">
+                            <tr><td colspan="8" class="p-4 text-center text-gray-500">Carregando dados financeiros...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <!-- Gráfico Simples de Recebimento -->
+            <div class="bg-white p-4 md:p-6 rounded-lg shadow-sm">
+                <h3 class="text-lg font-semibold mb-4 text-gray-700">📊 Previsão de Recebimento</h3>
+                <div class="grid grid-cols-1 md:grid-cols-6 gap-2 h-40 items-end">
+                    <div class="text-center">
+                        <div class="bg-blue-500 h-20 rounded-t-lg" style="height: 40px;" title="R$ 0,00"></div>
+                        <span class="text-xs">Jan</span>
+                    </div>
+                    <div class="text-center">
+                        <div class="bg-blue-500 h-20 rounded-t-lg" style="height: 60px;" title="R$ 0,00"></div>
+                        <span class="text-xs">Fev</span>
+                    </div>
+                    <div class="text-center">
+                        <div class="bg-blue-500 h-20 rounded-t-lg" style="height: 30px;" title="R$ 0,00"></div>
+                        <span class="text-xs">Mar</span>
+                    </div>
+                    <div class="text-center">
+                        <div class="bg-blue-500 h-20 rounded-t-lg" style="height: 80px;" title="R$ 0,00"></div>
+                        <span class="text-xs">Abr</span>
+                    </div>
+                    <div class="text-center">
+                        <div class="bg-blue-500 h-20 rounded-t-lg" style="height: 50px;" title="R$ 0,00"></div>
+                        <span class="text-xs">Mai</span>
+                    </div>
+                    <div class="text-center">
+                        <div class="bg-blue-500 h-20 rounded-t-lg" style="height: 70px;" title="R$ 0,00"></div>
+                        <span class="text-xs">Jun</span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -788,6 +899,8 @@
         window.bancoClientes = []; 
         window.bancoProdutos = []; 
         window.bancoPedidos = [];
+        // NOVO: Array para parcelas financeiras
+        window.parcelasFinanceiro = [];
 
         // ==========================================
         // FUNÇÕES DE CEP
@@ -875,6 +988,156 @@
         }
 
         // ==========================================
+        // NOVAS FUNÇÕES FINANCEIRAS
+        // ==========================================
+        
+        // Função para atualizar parcelas baseado na condição de pagamento
+        window.atualizarParcelas = function() {
+            const condicao = document.getElementById('select-condicao-pagamento').value;
+            const divPersonalizado = document.getElementById('div-parcelas-personalizado');
+            
+            if (condicao === 'Personalizado') {
+                divPersonalizado.classList.remove('hidden');
+            } else {
+                divPersonalizado.classList.add('hidden');
+            }
+        }
+
+        // Função para gerar parcelas a partir do pedido
+        function gerarParcelas(pedidoId, clienteNome, valorTotal, condicao, primeiroVencimento) {
+            let numeroParcelas = 1;
+            
+            if (condicao === 'Vista') {
+                numeroParcelas = 1;
+            } else if (condicao === 'Personalizado') {
+                numeroParcelas = parseInt(document.getElementById('input-parcelas').value) || 1;
+            } else {
+                // Extrai o número da condição (ex: "2x" -> 2)
+                numeroParcelas = parseInt(condicao.replace('x', '')) || 1;
+            }
+            
+            const valorParcela = valorTotal / numeroParcelas;
+            const parcelas = [];
+            
+            let dataVencimento = primeiroVencimento ? new Date(primeiroVencimento) : new Date();
+            
+            for (let i = 0; i < numeroParcelas; i++) {
+                const vencimento = new Date(dataVencimento);
+                vencimento.setMonth(vencimento.getMonth() + i);
+                
+                parcelas.push({
+                    id: `${pedidoId}_${i+1}`,
+                    pedidoId: pedidoId,
+                    cliente: clienteNome,
+                    numeroParcela: i+1,
+                    totalParcelas: numeroParcelas,
+                    vencimento: vencimento.toISOString().split('T')[0],
+                    valor: valorParcela,
+                    status: 'A Receber',
+                    dataPagamento: null
+                });
+            }
+            
+            return parcelas;
+        }
+
+        // Função para atualizar dashboard financeiro
+        function atualizarDashboardFinanceiro() {
+            // Simulação de dados financeiros (depois virá do Firebase)
+            const totalReceber = 15750.90;
+            const totalVencer = 8250.50;
+            const totalAtrasado = 2340.80;
+            const totalRecebidoMes = 12450.30;
+            
+            document.getElementById('total-a-receber').innerText = 'R$ ' + totalReceber.toFixed(2).replace('.', ',');
+            document.getElementById('total-a-vencer').innerText = 'R$ ' + totalVencer.toFixed(2).replace('.', ',');
+            document.getElementById('total-atrasado').innerText = 'R$ ' + totalAtrasado.toFixed(2).replace('.', ',');
+            document.getElementById('total-recebido-mes').innerText = 'R$ ' + totalRecebidoMes.toFixed(2).replace('.', ',');
+            
+            // Preenche o select de clientes
+            const selectCliente = document.getElementById('filtro-cliente-financeiro');
+            selectCliente.innerHTML = '<option value="todos">Todos os clientes</option>';
+            window.bancoClientes.forEach(c => {
+                selectCliente.innerHTML += `<option value="${c.nome}">${c.nome}</option>`;
+            });
+            
+            // Gera dados de exemplo para a tabela
+            const dadosExemplo = [
+                { cliente: 'João Silva', pedido: '#001', parcela: '1/3', vencimento: '2024-03-15', valor: 1250.00, status: 'A Receber', dias: 5 },
+                { cliente: 'Maria Santos', pedido: '#002', parcela: '2/2', vencimento: '2024-02-28', valor: 3450.50, status: 'Atrasado', dias: -15 },
+                { cliente: 'Pedro Oliveira', pedido: '#003', parcela: 'Única', vencimento: '2024-03-10', valor: 890.00, status: 'Pago', dias: 0 },
+                { cliente: 'Ana Costa', pedido: '#004', parcela: '1/1', vencimento: '2024-03-20', valor: 2300.00, status: 'A Receber', dias: 10 },
+                { cliente: 'Carlos Souza', pedido: '#005', parcela: '3/5', vencimento: '2024-02-01', valor: 850.30, status: 'Atrasado', dias: -25 },
+            ];
+            
+            let html = '';
+            dadosExemplo.forEach(p => {
+                let statusClass = '';
+                let statusText = p.status;
+                let diasClass = '';
+                
+                if (p.status === 'Pago') {
+                    statusClass = 'pago';
+                    diasClass = 'text-green-600';
+                } else if (p.status === 'Atrasado') {
+                    statusClass = 'atrasado';
+                    diasClass = 'text-red-600 font-bold';
+                } else {
+                    statusClass = 'a-vencer';
+                    diasClass = 'text-yellow-600';
+                }
+                
+                const diasTexto = p.dias > 0 ? `Faltam ${p.dias} dias` : (p.dias < 0 ? `${Math.abs(p.dias)} dias atrasado` : 'Vence hoje');
+                
+                html += `
+                <tr class="border-b hover:bg-gray-50 ${statusClass}">
+                    <td class="p-2 border">${p.cliente}</td>
+                    <td class="p-2 border">${p.pedido}</td>
+                    <td class="p-2 border">${p.parcela}</td>
+                    <td class="p-2 border">${new Date(p.vencimento).toLocaleDateString()}</td>
+                    <td class="p-2 border">R$ ${p.valor.toFixed(2).replace('.', ',')}</td>
+                    <td class="p-2 border">
+                        <span class="px-2 py-1 rounded-full text-xs font-medium 
+                            ${p.status === 'Pago' ? 'bg-green-100 text-green-800' : 
+                              p.status === 'Atrasado' ? 'bg-red-100 text-red-800' : 
+                              'bg-yellow-100 text-yellow-800'}">
+                            ${p.status}
+                        </span>
+                    </td>
+                    <td class="p-2 border ${diasClass}">${diasTexto}</td>
+                    <td class="p-2 border">
+                        <button onclick="marcarComoPago('${p.pedido}', '${p.parcela}')" class="text-green-600 hover:text-green-800 mr-2" title="Marcar como pago">
+                            ✅
+                        </button>
+                        <button onclick="verDetalhes('${p.pedido}')" class="text-blue-600 hover:text-blue-800" title="Ver detalhes">
+                            👁️
+                        </button>
+                    </td>
+                </tr>`;
+            });
+            
+            document.getElementById('tabela-financeiro').innerHTML = html;
+        }
+
+        // Função para filtrar financeiro
+        window.filtrarFinanceiro = function(termo) {
+            console.log('Filtrando financeiro:', termo);
+            // Implementar filtro depois
+        }
+
+        // Funções auxiliares financeiras
+        window.marcarComoPago = function(pedido, parcela) {
+            if (confirm(`Marcar parcela ${parcela} do pedido ${pedido} como pago?`)) {
+                alert('✅ Parcela marcada como paga!');
+                atualizarDashboardFinanceiro();
+            }
+        }
+
+        window.verDetalhes = function(pedido) {
+            alert(`Detalhes do pedido ${pedido} (em breve)`);
+        }
+
+        // ==========================================
         // FUNÇÕES DE STATUS
         // ==========================================
         
@@ -946,6 +1209,9 @@
                 'input-pedagio',
                 'input-desconto',
                 'select-pagamento',
+                'select-condicao-pagamento',
+                'input-parcelas',
+                'input-primeiro-vencimento',
                 'input-previsao',
                 'select-financeiro'
             ];
@@ -1002,17 +1268,6 @@
                 } else {
                     btnSalvar.removeAttribute('disabled');
                     btnSalvar.classList.remove('opacity-50', 'cursor-not-allowed');
-                }
-            }
-            
-            const btnNovoPedido = document.getElementById('btn-novo-pedido');
-            if (btnNovoPedido) {
-                if (bloquear) {
-                    btnNovoPedido.setAttribute('disabled', 'disabled');
-                    btnNovoPedido.classList.add('opacity-50', 'cursor-not-allowed');
-                } else {
-                    btnNovoPedido.removeAttribute('disabled');
-                    btnNovoPedido.classList.remove('opacity-50', 'cursor-not-allowed');
                 }
             }
         }
@@ -1123,6 +1378,7 @@
                     <td class="p-2 border-r">${p.cliente_nome}</td>
                     <td class="p-2 border-r">${gerarBadgeStatus(p.status)}</td>
                     <td class="p-2 border-r">R$ ${p.valor_total}</td>
+                    <td class="p-2 border-r">${p.condicao_pagamento || 'Vista'}</td>
                     <td class="p-2 text-center">
                         <button onclick="window.abrirPedidoParaEdicao('${p.id}')" class="bg-gray-800 text-yellow-500 px-3 py-1.5 rounded hover:bg-gray-700 transition text-sm shadow-sm">
                             👁️ Abrir
@@ -1177,6 +1433,7 @@
                     <td class="p-2 border-r">${p.cliente_nome}</td>
                     <td class="p-2 border-r">${gerarBadgeStatus(p.status)}</td>
                     <td class="p-2 border-r">R$ ${p.valor_total}</td>
+                    <td class="p-2 border-r">${p.condicao_pagamento || 'Vista'}</td>
                     <td class="p-2 text-center">
                         <button onclick="window.abrirPedidoParaEdicao('${p.id}')" class="bg-gray-800 text-yellow-500 px-3 py-1.5 rounded hover:bg-gray-700 transition text-sm shadow-sm">
                             👁️ Abrir
@@ -1203,6 +1460,9 @@
             
             document.getElementById('input-desconto').value = '0';
             document.getElementById('select-pagamento').value = 'Pix';
+            document.getElementById('select-condicao-pagamento').value = 'Vista';
+            document.getElementById('div-parcelas-personalizado').classList.add('hidden');
+            document.getElementById('input-primeiro-vencimento').value = '';
             document.getElementById('input-previsao').value = '';
             document.getElementById('pdf-n-display').innerText = '';
             
@@ -1273,6 +1533,10 @@
                 pedagio = parseFloat(pedagioInput.replace(',', '.')) || 0;
             }
             
+            // Pega condição de pagamento
+            const condicaoPagamento = document.getElementById('select-condicao-pagamento').value;
+            const primeiroVencimento = document.getElementById('input-primeiro-vencimento').value;
+            
             const dados = {
                 cliente_nome: nomeCliente,
                 cliente_id: cliente.id,
@@ -1280,6 +1544,8 @@
                 cliente_telefone: cliente.telefone || '',
                 cliente_documento: cliente.documento || '',
                 status: document.getElementById('select-status').value,
+                condicao_pagamento: condicaoPagamento,
+                primeiro_vencimento: primeiroVencimento,
                 valor_total: parseFloat(document.getElementById('btn-gerar-pdf').getAttribute('data-total').replace(',','.')) || 0,
                 frete: {
                     distancia: document.getElementById('input-km').value || '0',
@@ -1503,6 +1769,18 @@
                 }
             }
             
+            // Carrega condições de pagamento
+            if (pedido.condicao_pagamento) {
+                document.getElementById('select-condicao-pagamento').value = pedido.condicao_pagamento;
+                if (pedido.condicao_pagamento === 'Personalizado') {
+                    document.getElementById('div-parcelas-personalizado').classList.remove('hidden');
+                }
+            }
+            
+            if (pedido.primeiro_vencimento) {
+                document.getElementById('input-primeiro-vencimento').value = pedido.primeiro_vencimento;
+            }
+            
             const tbody = document.getElementById('tabela-itens');
             tbody.innerHTML = '<tr id="linha-adicionar"><td colspan="6" class="text-center p-2"><button onclick="adicionarLinha()" class="text-blue-600 font-bold">+ Adicionar Item</button></td></tr>';
             
@@ -1645,6 +1923,9 @@
             document.getElementById('prod-valor').value = '';
             document.getElementById('btn-cancelar-produto').classList.add('hidden');
         };
+
+        // Exporta função para uso no HTML
+        window.atualizarDashboardFinanceiro = atualizarDashboardFinanceiro;
     </script>
 </body>
 </html>
