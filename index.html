@@ -34,9 +34,7 @@
                     <input type="text" list="lista-sugestao-produtos" placeholder="Nome do produto" class="w-full p-1 border rounded desc-item border-blue-300 focus:ring-2 focus:ring-blue-500" onchange="window.preencherProduto(this)">
                 </td>
                 <td class="p-2 border">
-                    <select class="w-full p-1 border rounded forn-item">
-                        <option>Selecione...</option><option>Alumínios Brás</option><option>Vidraçaria Central</option>
-                    </select>
+                    <input type="text" placeholder="Fornecedor" class="w-full p-1 border rounded forn-item">
                 </td>
                 <td class="p-2 border"><input type="number" value="0.00" step="0.01" class="w-24 p-1 border rounded valor-item" onchange="calcularTudo()" onkeyup="calcularTudo()"></td>
                 <td class="p-2 border font-semibold total-linha">R$ 0,00</td>
@@ -220,7 +218,7 @@
                             <tr class="text-sm">
                                 <td class="p-2 border"><input type="number" value="1" min="1" class="w-16 p-1 border rounded qtd-item" onchange="calcularTudo()" onkeyup="calcularTudo()"></td>
                                 <td class="p-2 border"><input type="text" list="lista-sugestao-produtos" placeholder="Nome do produto (Busque aqui)" class="w-full p-1 border rounded desc-item border-blue-300 focus:ring-2 focus:ring-blue-500" onchange="window.preencherProduto(this)"></td>
-                                <td class="p-2 border"><select class="w-full p-1 border rounded forn-item"><option selected>Selecione...</option><option>Alumínios Brás</option><option>Vidraçaria Central</option></select></td>
+                                <td class="p-2 border"><input type="text" placeholder="Fornecedor" class="w-full p-1 border rounded forn-item"></td>
                                 <td class="p-2 border"><input type="number" value="0.00" step="0.01" class="w-full p-1 border rounded valor-item" onchange="calcularTudo()" onkeyup="calcularTudo()"></td>
                                 <td class="p-2 border font-semibold total-linha">R$ 0,00</td>
                                 <td class="p-2 border text-center"><button onclick="this.closest('tr').remove(); calcularTudo();" class="text-red-500 font-bold hover:text-red-700">X</button></td>
@@ -302,7 +300,6 @@
         <div id="aba-logistica" class="hidden space-y-6">
             <h2 class="text-2xl md:text-3xl font-bold text-gray-800 border-b pb-2">Painel de Pedidos</h2>
             <div class="bg-white p-4 md:p-6 rounded-lg shadow-sm">
-                
                 <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4 border-b pb-4">
                     <div>
                         <h3 class="text-lg font-semibold text-gray-700">Consulta Geral</h3>
@@ -342,7 +339,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getFirestore, collection, addDoc, serverTimestamp, getDocs, doc, updateDoc, deleteDoc, query, orderBy } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, serverTimestamp, getDocs, doc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyBb8UGRV8qcjV6-_kd7WucWhoJBKSHcUac",
@@ -377,13 +374,14 @@
                 // Pedidos (Lê do Firebase)
                 const pedSnap = await getDocs(collection(db, "pedidos"));
                 window.bancoPedidos = pedSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                // Ordena os mais recentes primeiro na memória (usando timestamp ou fallback)
+                
+                // Ordena os mais recentes primeiro na memória
                 window.bancoPedidos.sort((a,b) => (b.data_criacao?.seconds || 0) - (a.data_criacao?.seconds || 0));
 
                 // Atualiza as telas
                 renderizarTabelaClientes(window.bancoClientes.slice(0, 15));
                 renderizarTabelaProdutos(window.bancoProdutos.slice(0, 15));
-                renderizarTabelaPedidos(window.bancoPedidos.slice(0, 20)); // Mostra os 20 mais recentes
+                renderizarTabelaPedidos(window.bancoPedidos.slice(0, 20));
 
                 // Atualiza Autocompletar
                 document.getElementById('lista-sugestao-clientes').innerHTML = window.bancoClientes.map(c => `<option value="${c.nome}">`).join('');
@@ -393,14 +391,16 @@
         }
 
         // ==========================================
-        // PAINEL DE PEDIDOS (Busca e Listagem)
+        // FILTROS E RENDERIZAÇÃO DE TABELAS
         // ==========================================
+        
+        // --- PEDIDOS ---
         window.filtrarPedidos = function(termo) {
             const t = termo.toLowerCase();
             const filtrados = window.bancoPedidos.filter(p => 
                 (p.cliente_nome || '').toLowerCase().includes(t) || 
                 (p.cliente_endereco || '').toLowerCase().includes(t) ||
-                (p.id.toLowerCase().includes(t)) // Busca pelo ID também
+                (p.id.toLowerCase().includes(t)) 
             );
             renderizarTabelaPedidos(filtrados.slice(0, 20));
         }
@@ -410,12 +410,8 @@
             if(lista.length === 0) { tbody.innerHTML = '<tr><td colspan="6" class="p-4 text-center text-gray-500">Nenhum pedido encontrado.</td></tr>'; return; }
             
             tbody.innerHTML = lista.map(ped => {
-                // Formata o ID do Firebase para ficar menor e bonito (ex: A1B2C)
                 const idCurto = ped.id.slice(-5).toUpperCase();
-                // Formata a data se existir
                 const dataFormatada = ped.data_criacao ? new Date(ped.data_criacao.seconds * 1000).toLocaleDateString('pt-BR') : 'Sem data';
-                
-                // Cor do status
                 let corStatus = 'bg-gray-100 text-gray-800';
                 if(ped.status === 'Produção') corStatus = 'bg-yellow-100 text-yellow-800';
                 if(ped.status === 'Em Entrega') corStatus = 'bg-blue-100 text-blue-800';
@@ -429,27 +425,190 @@
                     <td class="p-2 border-r border-gray-200"><span class="${corStatus} px-2 py-1 rounded text-xs font-semibold">${ped.status || 'Orçamento'}</span></td>
                     <td class="p-2 border-r border-gray-200 font-bold text-gray-800">R$ ${(ped.valor_total || 0).toFixed(2).replace('.', ',')}</td>
                     <td class="p-2 space-x-2 text-center">
-                        <button onclick="abrirPedidoParaEdicao('${ped.id}')" class="bg-gray-800 text-yellow-500 font-bold px-3 py-1 rounded hover:bg-gray-900 shadow-sm border border-gray-700">👁️ Abrir / Imprimir</button>
+                        <button onclick="window.abrirPedidoParaEdicao('${ped.id}')" class="bg-gray-800 text-yellow-500 font-bold px-3 py-1 rounded hover:bg-gray-900 shadow-sm border border-gray-700">👁️ Abrir</button>
+                    </td>
+                </tr>`;
+            }).join('');
+        }
+
+        // --- CLIENTES ---
+        window.filtrarClientes = function(termo) {
+            const filtrados = window.bancoClientes.filter(c => c.nome.toLowerCase().includes(termo.toLowerCase()));
+            renderizarTabelaClientes(filtrados.slice(0, 15)); 
+        }
+
+        function renderizarTabelaClientes(lista) {
+            const tbody = document.getElementById('lista-clientes');
+            if(lista.length === 0) { tbody.innerHTML = '<tr><td colspan="3" class="p-4 text-center text-gray-500">Nenhum cliente encontrado.</td></tr>'; return; }
+            
+            tbody.innerHTML = lista.map(data => `
+                <tr class="border-b hover:bg-gray-50">
+                    <td class="p-2 font-medium text-gray-800">${data.nome}</td>
+                    <td class="p-2 text-gray-600">${data.telefone || '-'}</td>
+                    <td class="p-2 space-x-2">
+                        <button onclick="window.editarCliente('${data.id}', '${data.nome}', '${data.telefone}', '${data.documento}', '${data.endereco}')" class="text-blue-600 hover:text-blue-800 text-xs font-bold border border-blue-200 bg-blue-50 px-2 py-1 rounded">✏️ Editar</button>
+                        <button onclick="window.excluirCliente('${data.id}')" class="text-red-600 hover:text-red-800 text-xs font-bold border border-red-200 bg-red-50 px-2 py-1 rounded">🗑️</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        // --- PRODUTOS ---
+        window.filtrarProdutos = function(termo) {
+            const filtrados = window.bancoProdutos.filter(p => p.descricao.toLowerCase().includes(termo.toLowerCase()));
+            renderizarTabelaProdutos(filtrados.slice(0, 15));
+        }
+
+        function renderizarTabelaProdutos(lista) {
+            const tbody = document.getElementById('lista-produtos');
+            if(lista.length === 0) { tbody.innerHTML = '<tr><td colspan="4" class="p-4 text-center text-gray-500">Nenhum produto encontrado.</td></tr>'; return; }
+            
+            tbody.innerHTML = lista.map(data => {
+                const valorFormatado = data.valor_base ? data.valor_base.toFixed(2).replace('.', ',') : '0,00';
+                return `
+                <tr class="border-b hover:bg-gray-50">
+                    <td class="p-2 font-medium text-gray-800">${data.descricao}</td>
+                    <td class="p-2 text-gray-600">${data.fornecedor || '-'}</td>
+                    <td class="p-2 text-gray-800 font-bold">R$ ${valorFormatado}</td>
+                    <td class="p-2 space-x-2">
+                        <button onclick="window.editarProduto('${data.id}', '${data.descricao}', '${data.fornecedor}', '${data.valor_base}')" class="text-blue-600 hover:text-blue-800 text-xs font-bold border border-blue-200 bg-blue-50 px-2 py-1 rounded">✏️ Editar</button>
+                        <button onclick="window.excluirProduto('${data.id}')" class="text-red-600 hover:text-red-800 text-xs font-bold border border-red-200 bg-red-50 px-2 py-1 rounded">🗑️</button>
                     </td>
                 </tr>`;
             }).join('');
         }
 
         // ==========================================
-        // ABRIR PEDIDO PARA EDIÇÃO
+        // AUTOCOMPLETAR
+        // ==========================================
+        window.preencherCliente = function() {
+            const nomeDigitado = document.getElementById('input-cliente').value;
+            const clienteAchado = window.bancoClientes.find(c => c.nome === nomeDigitado);
+            if(clienteAchado && clienteAchado.endereco) document.getElementById('input-endereco').value = clienteAchado.endereco;
+        }
+
+        window.preencherProduto = function(inputElement) {
+            const descDigitada = inputElement.value;
+            const prodAchado = window.bancoProdutos.find(p => p.descricao === descDigitada);
+            if(prodAchado) {
+                const tr = inputElement.closest('tr');
+                tr.querySelector('.valor-item').value = prodAchado.valor_base;
+                if(prodAchado.fornecedor) tr.querySelector('.forn-item').value = prodAchado.fornecedor;
+                calcularTudo(); 
+            }
+        }
+
+        // ==========================================
+        // CRUD CLIENTES E PRODUTOS (Botões de Ação)
+        // ==========================================
+        window.editarCliente = function(id, nome, telefone, documento, endereco) {
+            document.getElementById('cli-id').value = id;
+            document.getElementById('cli-nome').value = nome !== 'undefined' ? nome : '';
+            document.getElementById('cli-telefone').value = telefone !== 'undefined' ? telefone : '';
+            document.getElementById('cli-documento').value = documento !== 'undefined' ? documento : '';
+            document.getElementById('cli-endereco').value = endereco !== 'undefined' ? endereco : '';
+            document.getElementById('titulo-form-cliente').innerText = '✏️ Editando Cliente';
+            document.getElementById('btn-salvar-cliente').innerText = '🔄 Atualizar Cliente';
+            document.getElementById('btn-salvar-cliente').classList.replace('bg-blue-600', 'bg-orange-500');
+            document.getElementById('btn-cancelar-cliente').classList.remove('hidden');
+            window.scrollTo(0, 0);
+        }
+
+        window.cancelarEdicaoCliente = function() {
+            document.getElementById('cli-id').value = '';
+            document.getElementById('cli-nome').value = '';
+            document.getElementById('cli-telefone').value = '';
+            document.getElementById('cli-documento').value = '';
+            document.getElementById('cli-endereco').value = '';
+            document.getElementById('titulo-form-cliente').innerText = 'Novo Cliente';
+            document.getElementById('btn-salvar-cliente').innerText = '💾 Salvar Cliente';
+            document.getElementById('btn-salvar-cliente').classList.replace('bg-orange-500', 'bg-blue-600');
+            document.getElementById('btn-cancelar-cliente').classList.add('hidden');
+        }
+
+        window.excluirCliente = async function(id) {
+            if(confirm("Tem certeza que deseja excluir este cliente?")) {
+                await deleteDoc(doc(db, "clientes", id));
+                carregarMemoriaBanco();
+            }
+        }
+
+        document.getElementById('btn-salvar-cliente').addEventListener('click', async () => {
+            const id = document.getElementById('cli-id').value;
+            const nome = document.getElementById('cli-nome').value;
+            const telefone = document.getElementById('cli-telefone').value;
+            const documento = document.getElementById('cli-documento').value;
+            const endereco = document.getElementById('cli-endereco').value;
+            if(!nome) { alert('O nome é obrigatório!'); return; }
+            document.getElementById('btn-salvar-cliente').innerText = 'Salvando...';
+
+            try {
+                if(id) await updateDoc(doc(db, "clientes", id), { nome, telefone, documento, endereco });
+                else await addDoc(collection(db, "clientes"), { nome, telefone, documento, endereco, data_cadastro: serverTimestamp() });
+                window.cancelarEdicaoCliente();
+                carregarMemoriaBanco();
+            } catch(e) { alert('Erro ao salvar cliente.'); }
+        });
+
+        window.editarProduto = function(id, descricao, fornecedor, valor_base) {
+            document.getElementById('prod-id').value = id;
+            document.getElementById('prod-desc').value = descricao !== 'undefined' ? descricao : '';
+            document.getElementById('prod-forn').value = fornecedor !== 'undefined' ? fornecedor : '';
+            document.getElementById('prod-valor').value = valor_base !== 'undefined' ? valor_base : '';
+            document.getElementById('titulo-form-produto').innerText = '✏️ Editando Produto';
+            document.getElementById('btn-salvar-produto').innerText = '🔄 Atualizar Produto';
+            document.getElementById('btn-salvar-produto').classList.replace('bg-blue-600', 'bg-orange-500');
+            document.getElementById('btn-cancelar-produto').classList.remove('hidden');
+            window.scrollTo(0, 0);
+        }
+
+        window.cancelarEdicaoProduto = function() {
+            document.getElementById('prod-id').value = '';
+            document.getElementById('prod-desc').value = '';
+            document.getElementById('prod-forn').value = '';
+            document.getElementById('prod-valor').value = '';
+            document.getElementById('titulo-form-produto').innerText = 'Novo Produto / Material';
+            document.getElementById('btn-salvar-produto').innerText = '💾 Salvar Produto';
+            document.getElementById('btn-salvar-produto').classList.replace('bg-orange-500', 'bg-blue-600');
+            document.getElementById('btn-cancelar-produto').classList.add('hidden');
+        }
+
+        window.excluirProduto = async function(id) {
+            if(confirm("Tem certeza que deseja excluir este produto?")) {
+                await deleteDoc(doc(db, "produtos", id));
+                carregarMemoriaBanco();
+            }
+        }
+
+        document.getElementById('btn-salvar-produto').addEventListener('click', async () => {
+            const id = document.getElementById('prod-id').value;
+            const descricao = document.getElementById('prod-desc').value;
+            const fornecedor = document.getElementById('prod-forn').value;
+            const valor = parseFloat(document.getElementById('prod-valor').value) || 0;
+            if(!descricao) { alert('A descrição é obrigatória!'); return; }
+            document.getElementById('btn-salvar-produto').innerText = 'Salvando...';
+
+            try {
+                if(id) await updateDoc(doc(db, "produtos", id), { descricao, fornecedor, valor_base: valor });
+                else await addDoc(collection(db, "produtos"), { descricao, fornecedor, valor_base: valor, data_cadastro: serverTimestamp() });
+                window.cancelarEdicaoProduto();
+                carregarMemoriaBanco();
+            } catch(e) { alert('Erro ao salvar produto.'); }
+        });
+
+        // ==========================================
+        // ABRIR PEDIDO E SALVAR PEDIDO
         // ==========================================
         window.abrirPedidoParaEdicao = function(id) {
             const ped = window.bancoPedidos.find(p => p.id === id);
             if(!ped) return;
 
-            // 1. Joga os dados na aba de Cadastro
             document.getElementById('pedido-id-atual').value = id;
             document.getElementById('input-cliente').value = ped.cliente_nome || '';
             document.getElementById('input-endereco').value = ped.cliente_endereco || '';
             document.getElementById('select-status').value = ped.status || 'Orçamento';
             document.getElementById('select-financeiro').value = ped.status_financeiro || 'A Receber';
             
-            // 2. Limpa e reconstrói a tabela de itens
             const tbody = document.getElementById('tabela-itens');
             tbody.innerHTML = '<tr class="text-sm" id="linha-adicionar"><td class="p-2 border bg-gray-50 text-center" colspan="6"><button onclick="adicionarLinha()" class="text-blue-600 font-semibold hover:underline w-full py-2">+ Adicionar Novo Item</button></td></tr>';
             
@@ -460,7 +619,7 @@
                     novaLinha.innerHTML = `
                         <td class="p-2 border"><input type="number" value="${item.quantidade}" min="1" class="w-16 p-1 border rounded qtd-item" onchange="calcularTudo()" onkeyup="calcularTudo()"></td>
                         <td class="p-2 border"><input type="text" list="lista-sugestao-produtos" value="${item.descricao}" class="w-full p-1 border rounded desc-item border-blue-300 focus:ring-2 focus:ring-blue-500" onchange="window.preencherProduto(this)"></td>
-                        <td class="p-2 border"><select class="w-full p-1 border rounded forn-item"><option selected>Selecione...</option><option>Alumínios Brás</option><option>Vidraçaria Central</option></select></td>
+                        <td class="p-2 border"><input type="text" value="${item.fornecedor || ''}" placeholder="Fornecedor" class="w-full p-1 border rounded forn-item"></td>
                         <td class="p-2 border"><input type="number" value="${item.valor_unitario}" step="0.01" class="w-full p-1 border rounded valor-item" onchange="calcularTudo()" onkeyup="calcularTudo()"></td>
                         <td class="p-2 border font-semibold total-linha">R$ 0,00</td>
                         <td class="p-2 border text-center"><button onclick="this.closest('tr').remove(); calcularTudo();" class="text-red-500 font-bold hover:text-red-700">X</button></td>
@@ -469,19 +628,16 @@
                 });
             } else { adicionarLinha(); }
 
-            // 3. Muda a "cara" do formulário para o modo Atualização
             document.getElementById('titulo-aba-pedido').innerText = '✏️ Editando Pedido #' + id.slice(-5).toUpperCase();
             document.getElementById('btn-salvar').innerText = '🔄 Atualizar Pedido Salvo';
             document.getElementById('btn-salvar').classList.replace('bg-green-600', 'bg-orange-500');
             document.getElementById('btn-cancelar-pedido').classList.remove('hidden');
 
-            // 4. Mostra a aba e calcula a matemática
             mostrarAba('aba-cadastro');
             calcularTudo();
             window.scrollTo(0, 0);
         }
 
-        // LIMPAR TELA DO PEDIDO (Voltar para modo "Novo Pedido")
         window.limparTelaPedido = function() {
             document.getElementById('pedido-id-atual').value = '';
             document.getElementById('input-cliente').value = '';
@@ -500,32 +656,9 @@
             calcularTudo();
         }
 
-        // ==========================================
-        // AUTOCOMPLETAR
-        // ==========================================
-        window.preencherCliente = function() {
-            const nomeDigitado = document.getElementById('input-cliente').value;
-            const clienteAchado = window.bancoClientes.find(c => c.nome === nomeDigitado);
-            if(clienteAchado && clienteAchado.endereco) document.getElementById('input-endereco').value = clienteAchado.endereco;
-        }
-
-        window.preencherProduto = function(inputElement) {
-            const descDigitada = inputElement.value;
-            const prodAchado = window.bancoProdutos.find(p => p.descricao === descDigitada);
-            if(prodAchado) {
-                const tr = inputElement.closest('tr');
-                tr.querySelector('.valor-item').value = prodAchado.valor_base;
-                calcularTudo(); 
-            }
-        }
-
-        // ==========================================
-        // SALVAR / ATUALIZAR O PEDIDO NO FIREBASE
-        // ==========================================
         document.getElementById('btn-salvar').addEventListener('click', async () => {
             const btn = document.getElementById('btn-salvar');
             btn.innerHTML = 'Salvando na nuvem...'; btn.classList.add('opacity-75');
-
             const idAtual = document.getElementById('pedido-id-atual').value;
             
             const novoPedido = { 
@@ -541,34 +674,28 @@
             document.querySelectorAll('#tabela-itens tr:not(#linha-adicionar)').forEach(linha => {
                 const qtd = parseFloat(linha.querySelector('.qtd-item')?.value) || 0;
                 const desc = linha.querySelector('.desc-item')?.value || '';
+                const forn = linha.querySelector('.forn-item')?.value || '';
                 const valor = parseFloat(linha.querySelector('.valor-item')?.value) || 0;
-                if (desc !== '') novoPedido.itens.push({ quantidade: qtd, descricao: desc, valor_unitario: valor, total_linha: qtd * valor });
+                if (desc !== '') novoPedido.itens.push({ quantidade: qtd, descricao: desc, fornecedor: forn, valor_unitario: valor, total_linha: qtd * valor });
             });
 
             try {
                 if(idAtual) {
-                    // ATUALIZA pedido existente
                     await updateDoc(doc(db, "pedidos", idAtual), novoPedido);
                     alert(`Pedido atualizado com sucesso!`);
                 } else {
-                    // CRIA pedido novo
                     novoPedido.data_criacao = serverTimestamp();
-                    const docRef = await addDoc(collection(db, "pedidos"), novoPedido);
+                    await addDoc(collection(db, "pedidos"), novoPedido);
                     alert(`Novo pedido gravado com sucesso!`);
                 }
-                
-                // Recarrega a página para limpar e atualizar a memória
                 window.location.reload(); 
             } catch (erro) { 
                 alert("Erro ao salvar o pedido no banco de dados."); 
-                console.error(erro);
                 btn.innerHTML = idAtual ? '🔄 Atualizar Pedido Salvo' : '💾 Salvar Novo Pedido'; 
                 btn.classList.remove('opacity-75'); 
             }
         });
 
-        // (O CRUD DE CLIENTES E PRODUTOS FICOU INTACTO E FUNCIONANDO AQUI NO CÓDIGO FINAL, RESUMIDO PARA O HTML NÃO EXPLODIR, MAS JÁ RODA NA FUNÇÃO carregarMemoriaBanco)
-        
         // INICIA O SISTEMA
         carregarMemoriaBanco();
 
