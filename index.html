@@ -94,65 +94,102 @@
         // ==========================================
         // GERAR PDF
         // ==========================================
+
 function gerarPDF() {
-            const nomeCliente = document.getElementById('input-cliente').value || 'Cliente_Nao_Identificado';
-            const endereco = document.getElementById('input-endereco').value || 'Não informado';
-            const previsao = document.getElementById('input-previsao').value || 'A combinar';
-            const total = document.getElementById('btn-gerar-pdf').getAttribute('data-total') || '0,00';
-            const idAtual = document.getElementById('pedido-id-atual').value;
-            const numeroExibicao = idAtual ? idAtual.slice(-5).toUpperCase() : 'NOVO';
-            
-            // Preenche o layout do PDF
-            document.getElementById('pdf-cliente').innerText = nomeCliente;
-            document.getElementById('pdf-endereco').innerText = endereco;
-            document.getElementById('pdf-data').innerText = new Date().toLocaleDateString('pt-BR');
-            document.getElementById('pdf-previsao').innerText = previsao;
-            document.getElementById('pdf-total').innerText = 'R$ ' + total;
-            document.getElementById('pdf-numero').innerText = 'PEDIDO #' + numeroExibicao;
+    const btn = document.getElementById('btn-gerar-pdf');
+    const textoOriginal = btn.innerHTML;
+    btn.innerHTML = '✨ Gerando PDF...';
 
-            const linhasTr = document.querySelectorAll('#tabela-itens tr:not(#linha-adicionar)');
-            let htmlTabela = '';
-            linhasTr.forEach(linha => {
-                const qtd = linha.querySelector('.qtd-item')?.value || '0';
-                const desc = linha.querySelector('.desc-item')?.value || '';
-                const totalLinha = linha.querySelector('.total-linha')?.innerText || 'R$ 0,00';
-                
-                // Só adiciona ao PDF se tiver descrição (evita linhas vazias)
-                if(desc.trim() !== '') {
-                    htmlTabela += `
-                        <tr style="border-bottom: 1px solid #ddd;">
-                            <td style="padding: 8px; text-align: center;">${qtd}</td>
-                            <td style="padding: 8px;">${desc}</td>
-                            <td style="padding: 8px; text-align: right; font-weight: bold;">${totalLinha}</td>
-                        </tr>
-                    `;
-                }
-            });
-            document.getElementById('pdf-corpo-tabela').innerHTML = htmlTabela;
+    // 1. Coleta de dados
+    const idAtual = document.getElementById('pedido-id-atual').value;
+    const numeroExibicao = document.getElementById('pdf-n-display').innerText || 'NOVO';
+    const cliente = document.getElementById('input-cliente').value || 'Não informado';
+    const endereco = document.getElementById('input-endereco').value || 'Não informado';
+    const previsao = document.getElementById('input-previsao').value || 'A combinar';
+    const dataAtual = new Date().toLocaleDateString('pt-BR');
+    const totalGeral = btn.getAttribute('data-total') || '0,00';
 
-            // Mostra o layout, gera o PDF e esconde de novo
-            const elemento = document.getElementById('layout-impressao');
-            elemento.classList.remove('hidden');
-
-            const opcoes = {
-                margin:       15,
-                filename:     `Pedido_${numeroExibicao}_${nomeCliente.replace(/\s+/g, '_')}.pdf`,
-                image:        { type: 'jpeg', quality: 0.98 },
-                html2canvas:  { scale: 2, logging: false, useCORS: true },
-                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
-            };
-
-            const btn = document.getElementById('btn-gerar-pdf');
-            const textoOriginal = btn.innerHTML;
-            btn.innerHTML = '✨ Preparando Impressão...';
-
-            html2pdf().set(opcoes).from(elemento).save().then(() => {
-                elemento.classList.add('hidden');
-                btn.innerHTML = textoOriginal;
-            });
+    // 2. Montagem das linhas da tabela
+    let linhasHtml = '';
+    document.querySelectorAll('#tabela-itens tr:not(#linha-adicionar)').forEach(linha => {
+        const qtd = linha.querySelector('.qtd-item')?.value || '0';
+        const desc = linha.querySelector('.desc-item')?.value || '';
+        const total = linha.querySelector('.total-linha')?.innerText || 'R$ 0,00';
+        
+        if(desc.trim() !== '') {
+            linhasHtml += `
+                <tr style="border-bottom: 1px solid #eee;">
+                    <td style="padding: 10px; text-align: center;">${qtd}</td>
+                    <td style="padding: 10px;">${desc}</td>
+                    <td style="padding: 10px; text-align: right; font-weight: bold;">${total}</td>
+                </tr>`;
         }
-	
-	</script>
+    });
+
+    // 3. Construção do HTML do Documento Inteiro
+    const conteudoCompleto = `
+        <div style="padding: 40px; font-family: Arial, sans-serif; color: #333; line-height: 1.5;">
+            <div style="display: flex; justify-content: space-between; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 20px;">
+                <div>
+                    <h1 style="margin: 0; font-size: 24px;">MPLEÃO</h1>
+                    <p style="margin: 0; font-size: 12px; color: #666;">Serralheria & Vidraçaria</p>
+                </div>
+                <div style="text-align: right;">
+                    <h2 style="margin: 0; font-size: 18px;">PEDIDO ${numeroExibicao}</h2>
+                    <p style="margin: 0; font-size: 12px;">Data: ${dataAtual}</p>
+                </div>
+            </div>
+
+            <div style="background: #f4f4f4; padding: 15px; border-radius: 5px; margin-bottom: 20px; font-size: 13px;">
+                <p><strong>Cliente:</strong> ${cliente}</p>
+                <p><strong>Endereço:</strong> ${endereco}</p>
+                <p><strong>Previsão de Entrega:</strong> ${previsao}</p>
+            </div>
+
+            <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px; font-size: 13px;">
+                <thead>
+                    <tr style="background: #333; color: #fff; text-align: left;">
+                        <th style="padding: 10px; width: 50px; text-align: center;">Qtd</th>
+                        <th style="padding: 10px;">Descrição</th>
+                        <th style="padding: 10px; width: 120px; text-align: right;">Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${linhasHtml}
+                </tbody>
+            </table>
+
+            <div style="text-align: right; margin-bottom: 50px;">
+                <div style="display: inline-block; background: #333; color: #fff; padding: 15px; border-radius: 5px;">
+                    <span style="font-size: 10px; text-transform: uppercase; display: block;">Total a Pagar</span>
+                    <strong style="font-size: 20px;">R$ ${totalGeral}</strong>
+                </div>
+            </div>
+
+            <div style="margin-top: 100px; display: flex; justify-content: space-between;">
+                <div style="width: 40%; border-top: 1px solid #333; text-align: center; padding-top: 5px; font-size: 11px;">Assinatura MPLEÃO</div>
+                <div style="width: 40%; border-top: 1px solid #333; text-align: center; padding-top: 5px; font-size: 11px;">Assinatura do Cliente</div>
+            </div>
+        </div>
+    `;
+
+    // 4. Configuração e Geração
+    const opcoes = {
+        margin: 0,
+        filename: `Pedido_${cliente.replace(/\s+/g, '_')}.pdf`,
+        image: { type: 'jpeg', quality: 1.0 },
+        html2canvas: { scale: 2, logging: false },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    };
+
+    html2pdf().set(opcoes).from(conteudoCompleto).save().then(() => {
+        btn.innerHTML = textoOriginal;
+    }).catch(err => {
+        console.error("Erro no PDF:", err);
+        btn.innerHTML = 'Erro ao gerar';
+    });
+}
+    </script>
 </head>
 <body class="bg-gray-100 flex flex-col md:flex-row h-screen overflow-hidden">
 
@@ -170,13 +207,18 @@ function gerarPDF() {
             <button id="btn-produtos" onclick="mostrarAba('aba-produtos')" class="text-sm md:text-base text-left p-3 rounded hover:bg-gray-600 transition">🏷️ Produtos</button>
             <button id="btn-logistica" onclick="mostrarAba('aba-logistica')" class="text-sm md:text-base text-left p-3 rounded hover:bg-gray-600 transition">🚚 Painel de Pedidos</button>
         </nav>
+		<nav class="flex flex-row md:flex-col p-4 gap-2 overflow-x-auto whitespace-nowrap">
+    <button onclick="window.fazerLogout()" class="mt-auto text-sm text-left p-3 text-red-400 hover:bg-gray-800 rounded transition">
+        🚪 Encerrar Sessão
+    </button>
+</nav>
     </aside>
 
     <main class="flex-1 overflow-y-auto p-4 md:p-8">
         
         <div id="aba-cadastro" class="space-y-6">
             <div class="flex justify-between items-center border-b pb-2">
-                <h2 class="text-2xl md:text-3xl font-bold text-gray-800" id="titulo-aba-pedido">Novo Pedido</h2>
+                <h2 class="text-2xl md:text-3xl font-bold text-gray-800" id="titulo-aba-pedido">Novo Pedido <span id="pdf-n-display"></span></h2>
                 <input type="hidden" id="pedido-id-atual" value="">
             </div>
             
@@ -237,7 +279,7 @@ function gerarPDF() {
                                 <td class="p-2 border"><input type="number" value="1" min="1" class="w-16 p-1 border rounded qtd-item" onchange="calcularTudo()" onkeyup="calcularTudo()"></td>
                                 <td class="p-2 border"><input type="text" list="lista-sugestao-produtos" placeholder="Nome do produto (Busque aqui)" class="w-full p-1 border rounded desc-item border-blue-300 focus:ring-2 focus:ring-blue-500" onchange="window.preencherProduto(this)"></td>
                                 <td class="p-2 border"><input type="text" placeholder="Fornecedor" class="w-full p-1 border rounded forn-item"></td>
-                                <td class="p-2 border"><input type="number" value="0.00" step="0.01" class="w-full p-1 border rounded valor-item" onchange="calcularTudo()" onkeyup="calcularTudo()"></td>
+                                <td class="p-2 border"><input type="number" value="0.00" step="0.01" class="w-24 p-1 border rounded valor-item" onchange="calcularTudo()" onkeyup="calcularTudo()"></td>
                                 <td class="p-2 border font-semibold total-linha">R$ 0,00</td>
                                 <td class="p-2 border text-center"><button onclick="this.closest('tr').remove(); calcularTudo();" class="text-red-500 font-bold hover:text-red-700">X</button></td>
                             </tr>
@@ -290,7 +332,7 @@ function gerarPDF() {
                 </div>
                 <div class="mt-8 border-t pt-6">
                     <div class="flex justify-between items-center mb-4"><h3 class="text-lg font-semibold text-gray-700">Clientes Cadastrados</h3><input type="text" placeholder="🔍 Buscar cliente..." class="p-2 border rounded border-gray-300 w-64 text-sm outline-none focus:border-blue-500" onkeyup="window.filtrarClientes(this.value)"></div>
-                    <div class="overflow-x-auto"><table class="w-full text-left border-collapse"><thead><tr class="bg-gray-100 text-gray-600 text-sm"><th class="p-2 border">Nome</th><th class="p-2 border">Telefone</th><th class="p-2 border">Ações</th></tr></thead><tbody id="lista-clientes" class="text-sm"><tr><td colspan="3" class="p-4 text-center text-gray-500">Carregando...</td></tr></tbody></table></div>
+                    <div class="overflow-x-auto"><table class="w-full text-left border-collapse"><thead><tr class="bg-gray-100 text-gray-600 text-sm"><th class="p-2 border">Nome</th><th class="p-2 border">Endereço</th><th class="p-2 border">Ações</th></tr></thead><tbody id="lista-clientes" class="text-sm"><tr><td colspan="3" class="p-4 text-center text-gray-500">Carregando...</td></tr></tbody></table></div>
                 </div>
             </div>
         </div>
@@ -310,7 +352,7 @@ function gerarPDF() {
                 </div>
                 <div class="mt-8 border-t pt-6">
                     <div class="flex justify-between items-center mb-4"><h3 class="text-lg font-semibold text-gray-700">Produtos Cadastrados</h3><input type="text" placeholder="🔍 Buscar produto..." class="p-2 border rounded border-gray-300 w-64 text-sm outline-none focus:border-blue-500" onkeyup="window.filtrarProdutos(this.value)"></div>
-                    <div class="overflow-x-auto"><table class="w-full text-left border-collapse"><thead><tr class="bg-gray-100 text-gray-600 text-sm"><th class="p-2 border">Descrição</th><th class="p-2 border">Fornecedor</th><th class="p-2 border">Valor (R$)</th><th class="p-2 border">Ações</th></tr></thead><tbody id="lista-produtos" class="text-sm"><tr><td colspan="4" class="p-4 text-center text-gray-500">Carregando...</td></tr></tbody></table></div>
+                    <div class="overflow-x-auto"><table class="w-full text-left border-collapse"><thead><tr class="bg-gray-100 text-gray-600 text-sm"><th class="p-2 border">Descrição</th><th class="p-2 border">Valor</th><th class="p-2 border">Ações</th></tr></thead><tbody id="lista-produtos" class="text-sm"><tr><td colspan="3" class="p-4 text-center text-gray-500">Carregando...</td></tr></tbody></table></div>
                 </div>
             </div>
         </div>
@@ -347,17 +389,11 @@ function gerarPDF() {
         </div>
     </main>
 
-    <div id="layout-impressao" class="hidden absolute top-0 left-0 bg-white w-[794px] min-h-[1123px] p-10 z-50 text-black font-sans">
-        <div class="flex justify-between items-center border-b-2 border-black pb-4 mb-6"><div><h1 class="text-4xl font-black uppercase">MP<span class="text-gray-500">LEÃO</span></h1><p>Serralheria & Vidraçaria</p></div><div class="text-right"><h2 class="text-xl font-bold" id="pdf-numero">#NOVO</h2><p>Data: <span id="pdf-data"></span></p></div></div>
-        <div class="border p-4 mb-6 bg-gray-50"><div class="grid grid-cols-2 gap-4"><div><p class="text-xs text-gray-500 uppercase">Cliente</p><p id="pdf-cliente" class="font-bold text-lg"></p></div><div><p class="text-xs text-gray-500 uppercase">Previsão</p><p id="pdf-previsao" class="font-bold"></p></div><div class="col-span-2"><p class="text-xs text-gray-500 uppercase">Endereço</p><p id="pdf-endereco" class="font-bold"></p></div></div></div>
-        <div class="mb-8"><table class="w-full text-left"><thead><tr class="bg-gray-200 text-sm uppercase"><th class="py-2 px-2 text-center w-16">Qtd</th><th class="py-2 px-2">Descrição</th><th class="py-2 px-2 text-right w-32">Total</th></tr></thead><tbody id="pdf-corpo-tabela" class="text-sm"></tbody></table></div>
-        <div class="flex justify-end mt-10"><div class="w-1/2 bg-gray-100 p-4 rounded border"><p class="text-gray-600 text-sm uppercase">Total a Pagar</p><p id="pdf-total" class="text-3xl font-black mt-1"></p></div></div>
-        <div class="mt-20 pt-10 border-t flex justify-between text-sm text-gray-500"><div class="text-center w-1/2 border-r"><p class="mt-8 border-t mx-10 pt-2">Assinatura MPLEÃO</p></div><div class="text-center w-1/2"><p class="mt-8 border-t mx-10 pt-2">Assinatura do Cliente</p></div></div>
-    </div>
-
-    <script type="module">
+<script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getFirestore, collection, addDoc, serverTimestamp, getDocs, doc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, serverTimestamp, getDocs, doc, updateDoc, deleteDoc, runTransaction } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        // Importação da Autenticação para a trava de segurança
+        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyBb8UGRV8qcjV6-_kd7WucWhoJBKSHcUac",
@@ -370,353 +406,145 @@ function gerarPDF() {
 
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
+        const auth = getAuth(app);
 
-        // Memória
-        window.bancoClientes = [];
-        window.bancoProdutos = [];
-        window.bancoPedidos = [];
-
-        // ==========================================
-        // CARREGAMENTO GERAL DO BANCO
-        // ==========================================
-        async function carregarMemoriaBanco() {
-            try {
-                // Clientes
-                const cliSnap = await getDocs(collection(db, "clientes"));
-                window.bancoClientes = cliSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                
-                // Produtos
-                const prodSnap = await getDocs(collection(db, "produtos"));
-                window.bancoProdutos = prodSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
-                // Pedidos (Lê do Firebase)
-                const pedSnap = await getDocs(collection(db, "pedidos"));
-                window.bancoPedidos = pedSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                
-                // Ordena os mais recentes primeiro na memória
-                window.bancoPedidos.sort((a,b) => (b.data_criacao?.seconds || 0) - (a.data_criacao?.seconds || 0));
-
-                // Atualiza as telas
-                renderizarTabelaClientes(window.bancoClientes.slice(0, 15));
-                renderizarTabelaProdutos(window.bancoProdutos.slice(0, 15));
-                renderizarTabelaPedidos(window.bancoPedidos.slice(0, 20));
-
-                // Atualiza Autocompletar
-                document.getElementById('lista-sugestao-clientes').innerHTML = window.bancoClientes.map(c => `<option value="${c.nome}">`).join('');
-                document.getElementById('lista-sugestao-produtos').innerHTML = window.bancoProdutos.map(p => `<option value="${p.descricao}">`).join('');
-
-            } catch (e) { console.error("Erro ao carregar banco: ", e); }
-        }
-
-        // ==========================================
-        // FILTROS E RENDERIZAÇÃO DE TABELAS
-        // ==========================================
-        
-        // --- PEDIDOS ---
-        window.filtrarPedidos = function(termo) {
-            const t = termo.toLowerCase();
-            const filtrados = window.bancoPedidos.filter(p => 
-                (p.cliente_nome || '').toLowerCase().includes(t) || 
-                (p.cliente_endereco || '').toLowerCase().includes(t) ||
-                (p.id.toLowerCase().includes(t)) 
-            );
-            renderizarTabelaPedidos(filtrados.slice(0, 20));
-        }
-
-        function renderizarTabelaPedidos(lista) {
-            const tbody = document.getElementById('tabela-pedidos');
-            if(lista.length === 0) { tbody.innerHTML = '<tr><td colspan="6" class="p-4 text-center text-gray-500">Nenhum pedido encontrado.</td></tr>'; return; }
-            
-            tbody.innerHTML = lista.map(ped => {
-                const idCurto = ped.id.slice(-5).toUpperCase();
-                const dataFormatada = ped.data_criacao ? new Date(ped.data_criacao.seconds * 1000).toLocaleDateString('pt-BR') : 'Sem data';
-                let corStatus = 'bg-gray-100 text-gray-800';
-                if(ped.status === 'Produção') corStatus = 'bg-yellow-100 text-yellow-800';
-                if(ped.status === 'Em Entrega') corStatus = 'bg-blue-100 text-blue-800';
-                if(ped.status === 'Entregue') corStatus = 'bg-green-100 text-green-800';
-
-                return `
-                <tr class="border-b hover:bg-gray-50 text-sm">
-                    <td class="p-2 border-r border-gray-200 font-mono text-gray-500 font-bold">#${idCurto}</td>
-                    <td class="p-2 border-r border-gray-200">${dataFormatada}</td>
-                    <td class="p-2 border-r border-gray-200 font-medium">${ped.cliente_nome}</td>
-                    <td class="p-2 border-r border-gray-200"><span class="${corStatus} px-2 py-1 rounded text-xs font-semibold">${ped.status || 'Orçamento'}</span></td>
-                    <td class="p-2 border-r border-gray-200 font-bold text-gray-800">R$ ${(ped.valor_total || 0).toFixed(2).replace('.', ',')}</td>
-                    <td class="p-2 space-x-2 text-center">
-                        <button onclick="window.abrirPedidoParaEdicao('${ped.id}')" class="bg-gray-800 text-yellow-500 font-bold px-3 py-1 rounded hover:bg-gray-900 shadow-sm border border-gray-700">👁️ Abrir</button>
-                    </td>
-                </tr>`;
-            }).join('');
-        }
-
-        // --- CLIENTES ---
-        window.filtrarClientes = function(termo) {
-            const filtrados = window.bancoClientes.filter(c => c.nome.toLowerCase().includes(termo.toLowerCase()));
-            renderizarTabelaClientes(filtrados.slice(0, 15)); 
-        }
-
-        function renderizarTabelaClientes(lista) {
-            const tbody = document.getElementById('lista-clientes');
-            if(lista.length === 0) { tbody.innerHTML = '<tr><td colspan="3" class="p-4 text-center text-gray-500">Nenhum cliente encontrado.</td></tr>'; return; }
-            
-            tbody.innerHTML = lista.map(data => `
-                <tr class="border-b hover:bg-gray-50">
-                    <td class="p-2 font-medium text-gray-800">${data.nome}</td>
-                    <td class="p-2 text-gray-600">${data.telefone || '-'}</td>
-                    <td class="p-2 space-x-2">
-                        <button onclick="window.editarCliente('${data.id}', '${data.nome}', '${data.telefone}', '${data.documento}', '${data.endereco}')" class="text-blue-600 hover:text-blue-800 text-xs font-bold border border-blue-200 bg-blue-50 px-2 py-1 rounded">✏️ Editar</button>
-                        <button onclick="window.excluirCliente('${data.id}')" class="text-red-600 hover:text-red-800 text-xs font-bold border border-red-200 bg-red-50 px-2 py-1 rounded">🗑️</button>
-                    </td>
-                </tr>
-            `).join('');
-        }
-
-        // --- PRODUTOS ---
-        window.filtrarProdutos = function(termo) {
-            const filtrados = window.bancoProdutos.filter(p => p.descricao.toLowerCase().includes(termo.toLowerCase()));
-            renderizarTabelaProdutos(filtrados.slice(0, 15));
-        }
-
-        function renderizarTabelaProdutos(lista) {
-            const tbody = document.getElementById('lista-produtos');
-            if(lista.length === 0) { tbody.innerHTML = '<tr><td colspan="4" class="p-4 text-center text-gray-500">Nenhum produto encontrado.</td></tr>'; return; }
-            
-            tbody.innerHTML = lista.map(data => {
-                const valorFormatado = data.valor_base ? data.valor_base.toFixed(2).replace('.', ',') : '0,00';
-                return `
-                <tr class="border-b hover:bg-gray-50">
-                    <td class="p-2 font-medium text-gray-800">${data.descricao}</td>
-                    <td class="p-2 text-gray-600">${data.fornecedor || '-'}</td>
-                    <td class="p-2 text-gray-800 font-bold">R$ ${valorFormatado}</td>
-                    <td class="p-2 space-x-2">
-                        <button onclick="window.editarProduto('${data.id}', '${data.descricao}', '${data.fornecedor}', '${data.valor_base}')" class="text-blue-600 hover:text-blue-800 text-xs font-bold border border-blue-200 bg-blue-50 px-2 py-1 rounded">✏️ Editar</button>
-                        <button onclick="window.excluirProduto('${data.id}')" class="text-red-600 hover:text-red-800 text-xs font-bold border border-red-200 bg-red-50 px-2 py-1 rounded">🗑️</button>
-                    </td>
-                </tr>`;
-            }).join('');
-        }
-
-        // ==========================================
-        // AUTOCOMPLETAR
-        // ==========================================
-        window.preencherCliente = function() {
-            const nomeDigitado = document.getElementById('input-cliente').value;
-            const clienteAchado = window.bancoClientes.find(c => c.nome === nomeDigitado);
-            if(clienteAchado && clienteAchado.endereco) document.getElementById('input-endereco').value = clienteAchado.endereco;
-        }
-
-        window.preencherProduto = function(inputElement) {
-            const descDigitada = inputElement.value;
-            const prodAchado = window.bancoProdutos.find(p => p.descricao === descDigitada);
-            if(prodAchado) {
-                const tr = inputElement.closest('tr');
-                tr.querySelector('.valor-item').value = prodAchado.valor_base;
-                if(prodAchado.fornecedor) tr.querySelector('.forn-item').value = prodAchado.fornecedor;
-                calcularTudo(); 
+        // --- TRAVA DE SEGURANÇA (SÓ CARREGA SE ESTIVER LOGADO) ---
+        onAuthStateChanged(auth, (user) => {
+            if (!user) {
+                window.location.href = "login.html"; // Expulsa se não estiver logado
+            } else {
+                carregarMemoriaBanco(); // Só carrega os dados se o login for real
             }
-        }
-
-        // ==========================================
-        // CRUD CLIENTES E PRODUTOS (Botões de Ação)
-        // ==========================================
-        window.editarCliente = function(id, nome, telefone, documento, endereco) {
-            document.getElementById('cli-id').value = id;
-            document.getElementById('cli-nome').value = nome !== 'undefined' ? nome : '';
-            document.getElementById('cli-telefone').value = telefone !== 'undefined' ? telefone : '';
-            document.getElementById('cli-documento').value = documento !== 'undefined' ? documento : '';
-            document.getElementById('cli-endereco').value = endereco !== 'undefined' ? endereco : '';
-            document.getElementById('titulo-form-cliente').innerText = '✏️ Editando Cliente';
-            document.getElementById('btn-salvar-cliente').innerText = '🔄 Atualizar Cliente';
-            document.getElementById('btn-salvar-cliente').classList.replace('bg-blue-600', 'bg-orange-500');
-            document.getElementById('btn-cancelar-cliente').classList.remove('hidden');
-            window.scrollTo(0, 0);
-        }
-
-        window.cancelarEdicaoCliente = function() {
-            document.getElementById('cli-id').value = '';
-            document.getElementById('cli-nome').value = '';
-            document.getElementById('cli-telefone').value = '';
-            document.getElementById('cli-documento').value = '';
-            document.getElementById('cli-endereco').value = '';
-            document.getElementById('titulo-form-cliente').innerText = 'Novo Cliente';
-            document.getElementById('btn-salvar-cliente').innerText = '💾 Salvar Cliente';
-            document.getElementById('btn-salvar-cliente').classList.replace('bg-orange-500', 'bg-blue-600');
-            document.getElementById('btn-cancelar-cliente').classList.add('hidden');
-        }
-
-        window.excluirCliente = async function(id) {
-            if(confirm("Tem certeza que deseja excluir este cliente?")) {
-                await deleteDoc(doc(db, "clientes", id));
-                carregarMemoriaBanco();
-            }
-        }
-
-        document.getElementById('btn-salvar-cliente').addEventListener('click', async () => {
-            const id = document.getElementById('cli-id').value;
-            const nome = document.getElementById('cli-nome').value;
-            const telefone = document.getElementById('cli-telefone').value;
-            const documento = document.getElementById('cli-documento').value;
-            const endereco = document.getElementById('cli-endereco').value;
-            if(!nome) { alert('O nome é obrigatório!'); return; }
-            document.getElementById('btn-salvar-cliente').innerText = 'Salvando...';
-
-            try {
-                if(id) await updateDoc(doc(db, "clientes", id), { nome, telefone, documento, endereco });
-                else await addDoc(collection(db, "clientes"), { nome, telefone, documento, endereco, data_cadastro: serverTimestamp() });
-                window.cancelarEdicaoCliente();
-                carregarMemoriaBanco();
-            } catch(e) { alert('Erro ao salvar cliente.'); }
         });
 
-        window.editarProduto = function(id, descricao, fornecedor, valor_base) {
-            document.getElementById('prod-id').value = id;
-            document.getElementById('prod-desc').value = descricao !== 'undefined' ? descricao : '';
-            document.getElementById('prod-forn').value = fornecedor !== 'undefined' ? fornecedor : '';
-            document.getElementById('prod-valor').value = valor_base !== 'undefined' ? valor_base : '';
-            document.getElementById('titulo-form-produto').innerText = '✏️ Editando Produto';
-            document.getElementById('btn-salvar-produto').innerText = '🔄 Atualizar Produto';
-            document.getElementById('btn-salvar-produto').classList.replace('bg-blue-600', 'bg-orange-500');
-            document.getElementById('btn-cancelar-produto').classList.remove('hidden');
-            window.scrollTo(0, 0);
+        // Função de Logout para o botão Sair
+        window.fazerLogout = function() {
+            signOut(auth).then(() => { window.location.href = "login.html"; });
         }
 
-        window.cancelarEdicaoProduto = function() {
-            document.getElementById('prod-id').value = '';
-            document.getElementById('prod-desc').value = '';
-            document.getElementById('prod-forn').value = '';
-            document.getElementById('prod-valor').value = '';
-            document.getElementById('titulo-form-produto').innerText = 'Novo Produto / Material';
-            document.getElementById('btn-salvar-produto').innerText = '💾 Salvar Produto';
-            document.getElementById('btn-salvar-produto').classList.replace('bg-orange-500', 'bg-blue-600');
-            document.getElementById('btn-cancelar-produto').classList.add('hidden');
+        window.bancoClientes = []; window.bancoProdutos = []; window.bancoPedidos = [];
+
+        // --- CONTADOR SEQUENCIAL ---
+        async function obterProximoNumeroPedido() {
+            const ref = doc(db, "configuracoes", "contador_pedidos");
+            return await runTransaction(db, async (t) => {
+                const snap = await t.get(ref);
+                const n = snap.exists() ? snap.data().ultimo_numero + 1 : 1;
+                t.set(ref, { ultimo_numero: n }); return n;
+            });
         }
 
-        window.excluirProduto = async function(id) {
-            if(confirm("Tem certeza que deseja excluir este produto?")) {
-                await deleteDoc(doc(db, "produtos", id));
-                carregarMemoriaBanco();
-            }
+        // --- CARREGAMENTO GERAL ---
+        async function carregarMemoriaBanco() {
+            try {
+                const cliSnap = await getDocs(collection(db, "clientes"));
+                window.bancoClientes = cliSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                const prodSnap = await getDocs(collection(db, "produtos"));
+                window.bancoProdutos = prodSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                const pedSnap = await getDocs(collection(db, "pedidos"));
+                window.bancoPedidos = pedSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                window.bancoPedidos.sort((a,b) => (b.data_criacao?.seconds || 0) - (a.data_criacao?.seconds || 0));
+                renderizarTudo();
+            } catch (e) { console.error("Erro ao carregar:", e); }
         }
+
+        function renderizarTudo() {
+            document.getElementById('tabela-pedidos').innerHTML = window.bancoPedidos.map(p => `
+                <tr class="border-b text-sm">
+                    <td class="p-2 border-r font-bold">#${p.numero_sequencial?.toString().padStart(3,'0') || 'S/N'}</td>
+                    <td class="p-2 border-r">${p.data_criacao ? new Date(p.data_criacao.seconds*1000).toLocaleDateString() : '-'}</td>
+                    <td class="p-2 border-r">${p.cliente_nome}</td>
+                    <td class="p-2 border-r">${p.status}</td>
+                    <td class="p-2 border-r">R$ ${p.valor_total}</td>
+                    <td class="p-2 text-center"><button onclick="window.abrirPedidoParaEdicao('${p.id}')" class="bg-gray-800 text-yellow-500 px-2 py-1 rounded">👁️ Abrir</button></td>
+                </tr>`).join('');
+
+            document.getElementById('lista-clientes').innerHTML = window.bancoClientes.map(c => `
+                <tr class="border-b text-sm"><td class="p-2">${c.nome}</td><td class="p-2">${c.endereco}</td><td class="p-2"><button onclick="window.editarCliente('${c.id}','${c.nome}','','','${c.endereco}')">✏️</button><button onclick="window.excluirCliente('${c.id}')" class="ml-2 text-red-600">🗑️</button></td></tr>`).join('');
+
+            document.getElementById('lista-produtos').innerHTML = window.bancoProdutos.map(p => `
+                <tr class="border-b text-sm"><td class="p-2">${p.descricao}</td><td class="p-2">R$ ${p.valor_base}</td><td class="p-2"><button onclick="window.editarProduto('${p.id}','${p.descricao}','','${p.valor_base}')">✏️</button><button onclick="window.excluirProduto('${p.id}')" class="ml-2 text-red-600">🗑️</button></td></tr>`).join('');
+
+            document.getElementById('lista-sugestao-clientes').innerHTML = window.bancoClientes.map(c => `<option value="${c.nome}">`).join('');
+            document.getElementById('lista-sugestao-produtos').innerHTML = window.bancoProdutos.map(p => `<option value="${p.descricao}">`).join('');
+        }
+
+        // --- SALVAR PEDIDO ---
+        document.getElementById('btn-salvar').addEventListener('click', async () => {
+            const btn = document.getElementById('btn-salvar'); const id = document.getElementById('pedido-id-atual').value;
+            btn.innerHTML = '...';
+            const dados = {
+                cliente_nome: document.getElementById('input-cliente').value,
+                cliente_endereco: document.getElementById('input-endereco').value,
+                status: document.getElementById('select-status').value,
+                valor_total: parseFloat(document.getElementById('btn-gerar-pdf').getAttribute('data-total').replace(',','.')),
+                itens: []
+            };
+            document.querySelectorAll('#tabela-itens tr:not(#linha-adicionar)').forEach(tr => {
+                const desc = tr.querySelector('.desc-item').value;
+                if(desc) dados.itens.push({ quantidade: tr.querySelector('.qtd-item').value, descricao: desc, fornecedor: tr.querySelector('.forn-item').value, valor_unitario: tr.querySelector('.valor-item').value });
+            });
+            if(id) await updateDoc(doc(db,"pedidos",id), dados);
+            else { dados.numero_sequencial = await obterProximoNumeroPedido(); dados.data_criacao = serverTimestamp(); await addDoc(collection(db,"pedidos"), dados); }
+            window.location.reload();
+        });
+
+        // --- CLIENTES E PRODUTOS (SEM RELOAD) ---
+        document.getElementById('btn-salvar-cliente').addEventListener('click', async () => {
+            const id = document.getElementById('cli-id').value;
+            const d = { nome: document.getElementById('cli-nome').value, endereco: document.getElementById('cli-endereco').value };
+            if(id) await updateDoc(doc(db,"clientes",id), d); else await addDoc(collection(db,"clientes"), {...d, data_cadastro: serverTimestamp()});
+            document.getElementById('cli-id').value = ''; document.getElementById('cli-nome').value = ''; document.getElementById('cli-endereco').value = '';
+            alert("Cliente Salvo!"); carregarMemoriaBanco();
+        });
 
         document.getElementById('btn-salvar-produto').addEventListener('click', async () => {
             const id = document.getElementById('prod-id').value;
-            const descricao = document.getElementById('prod-desc').value;
-            const fornecedor = document.getElementById('prod-forn').value;
-            const valor = parseFloat(document.getElementById('prod-valor').value) || 0;
-            if(!descricao) { alert('A descrição é obrigatória!'); return; }
-            document.getElementById('btn-salvar-produto').innerText = 'Salvando...';
-
-            try {
-                if(id) await updateDoc(doc(db, "produtos", id), { descricao, fornecedor, valor_base: valor });
-                else await addDoc(collection(db, "produtos"), { descricao, fornecedor, valor_base: valor, data_cadastro: serverTimestamp() });
-                window.cancelarEdicaoProduto();
-                carregarMemoriaBanco();
-            } catch(e) { alert('Erro ao salvar produto.'); }
+            const d = { descricao: document.getElementById('prod-desc').value, valor_base: document.getElementById('prod-valor').value };
+            if(id) await updateDoc(doc(db,"produtos",id), d); else await addDoc(collection(db,"produtos"), {...d, data_cadastro: serverTimestamp()});
+            document.getElementById('prod-id').value = ''; document.getElementById('prod-desc').value = ''; document.getElementById('prod-valor').value = '';
+            alert("Produto Salvo!"); carregarMemoriaBanco();
         });
 
-        // ==========================================
-        // ABRIR PEDIDO E SALVAR PEDIDO
-        // ==========================================
-        window.abrirPedidoParaEdicao = function(id) {
-            const ped = window.bancoPedidos.find(p => p.id === id);
-            if(!ped) return;
-
+        // --- HELPERS ---
+        window.abrirPedidoParaEdicao = (id) => {
+            const p = window.bancoPedidos.find(x => x.id === id);
             document.getElementById('pedido-id-atual').value = id;
-            document.getElementById('input-cliente').value = ped.cliente_nome || '';
-            document.getElementById('input-endereco').value = ped.cliente_endereco || '';
-            document.getElementById('select-status').value = ped.status || 'Orçamento';
-            document.getElementById('select-financeiro').value = ped.status_financeiro || 'A Receber';
-            
-            const tbody = document.getElementById('tabela-itens');
-            tbody.innerHTML = '<tr class="text-sm" id="linha-adicionar"><td class="p-2 border bg-gray-50 text-center" colspan="6"><button onclick="adicionarLinha()" class="text-blue-600 font-semibold hover:underline w-full py-2">+ Adicionar Novo Item</button></td></tr>';
-            
-            if(ped.itens && ped.itens.length > 0) {
-                ped.itens.forEach(item => {
-                    const novaLinha = document.createElement('tr');
-                    novaLinha.className = 'text-sm';
-                    novaLinha.innerHTML = `
-                        <td class="p-2 border"><input type="number" value="${item.quantidade}" min="1" class="w-16 p-1 border rounded qtd-item" onchange="calcularTudo()" onkeyup="calcularTudo()"></td>
-                        <td class="p-2 border"><input type="text" list="lista-sugestao-produtos" value="${item.descricao}" class="w-full p-1 border rounded desc-item border-blue-300 focus:ring-2 focus:ring-blue-500" onchange="window.preencherProduto(this)"></td>
-                        <td class="p-2 border"><input type="text" value="${item.fornecedor || ''}" placeholder="Fornecedor" class="w-full p-1 border rounded forn-item"></td>
-                        <td class="p-2 border"><input type="number" value="${item.valor_unitario}" step="0.01" class="w-full p-1 border rounded valor-item" onchange="calcularTudo()" onkeyup="calcularTudo()"></td>
-                        <td class="p-2 border font-semibold total-linha">R$ 0,00</td>
-                        <td class="p-2 border text-center"><button onclick="this.closest('tr').remove(); calcularTudo();" class="text-red-500 font-bold hover:text-red-700">X</button></td>
-                    `;
-                    tbody.insertBefore(novaLinha, document.getElementById('linha-adicionar'));
-                });
-            } else { adicionarLinha(); }
-
-            document.getElementById('titulo-aba-pedido').innerText = '✏️ Editando Pedido #' + id.slice(-5).toUpperCase();
-            document.getElementById('btn-salvar').innerText = '🔄 Atualizar Pedido Salvo';
-            document.getElementById('btn-salvar').classList.replace('bg-green-600', 'bg-orange-500');
+            document.getElementById('input-cliente').value = p.cliente_nome;
+            document.getElementById('input-endereco').value = p.cliente_endereco;
+            document.getElementById('select-status').value = p.status;
+            document.getElementById('pdf-n-display').innerText = '#' + (p.numero_sequencial?.toString().padStart(3,'0') || '???');
             document.getElementById('btn-cancelar-pedido').classList.remove('hidden');
-
-            mostrarAba('aba-cadastro');
-            calcularTudo();
-            window.scrollTo(0, 0);
-        }
-
-        window.limparTelaPedido = function() {
-            document.getElementById('pedido-id-atual').value = '';
-            document.getElementById('input-cliente').value = '';
-            document.getElementById('input-endereco').value = '';
-            document.getElementById('select-status').value = 'Orçamento';
-            document.getElementById('select-financeiro').value = 'A Receber';
-            
             const tbody = document.getElementById('tabela-itens');
-            tbody.innerHTML = '<tr class="text-sm" id="linha-adicionar"><td class="p-2 border bg-gray-50 text-center" colspan="6"><button onclick="adicionarLinha()" class="text-blue-600 font-semibold hover:underline w-full py-2">+ Adicionar Novo Item</button></td></tr>';
-            adicionarLinha();
-
-            document.getElementById('titulo-aba-pedido').innerText = 'Novo Pedido';
-            document.getElementById('btn-salvar').innerText = '💾 Salvar Novo Pedido';
-            document.getElementById('btn-salvar').classList.replace('bg-orange-500', 'bg-green-600');
-            document.getElementById('btn-cancelar-pedido').classList.add('hidden');
-            calcularTudo();
-        }
-
-        document.getElementById('btn-salvar').addEventListener('click', async () => {
-            const btn = document.getElementById('btn-salvar');
-            btn.innerHTML = 'Salvando na nuvem...'; btn.classList.add('opacity-75');
-            const idAtual = document.getElementById('pedido-id-atual').value;
-            
-            const novoPedido = { 
-                cliente_nome: document.getElementById('input-cliente').value || 'Cliente Balcão', 
-                cliente_endereco: document.getElementById('input-endereco').value || '', 
-                status: document.getElementById('select-status').value,
-                status_financeiro: document.getElementById('select-financeiro').value,
-                itens: [], 
-                valor_total: parseFloat((document.getElementById('btn-gerar-pdf').getAttribute('data-total') || '0,00').replace(',', '.')), 
-                editando_por: null 
-            };
-
-            document.querySelectorAll('#tabela-itens tr:not(#linha-adicionar)').forEach(linha => {
-                const qtd = parseFloat(linha.querySelector('.qtd-item')?.value) || 0;
-                const desc = linha.querySelector('.desc-item')?.value || '';
-                const forn = linha.querySelector('.forn-item')?.value || '';
-                const valor = parseFloat(linha.querySelector('.valor-item')?.value) || 0;
-                if (desc !== '') novoPedido.itens.push({ quantidade: qtd, descricao: desc, fornecedor: forn, valor_unitario: valor, total_linha: qtd * valor });
+            tbody.innerHTML = '<tr id="linha-adicionar"><td colspan="6" class="text-center p-2"><button onclick="adicionarLinha()" class="text-blue-600 font-bold">+ Adicionar Item</button></td></tr>';
+            p.itens.forEach(i => {
+                const tr = document.createElement('tr'); tr.className = 'text-sm';
+                tr.innerHTML = `<td class="p-2 border"><input type="number" value="${i.quantidade}" class="w-16 p-1 border rounded qtd-item" onchange="calcularTudo()"></td><td class="p-2 border"><input type="text" list="lista-sugestao-produtos" value="${i.descricao}" class="w-full p-1 border rounded desc-item" onchange="window.preencherProduto(this)"></td><td class="p-2 border"><input type="text" value="${i.fornecedor || ''}" class="w-full p-1 border rounded forn-item"></td><td class="p-2 border"><input type="number" value="${i.valor_unitario}" class="w-full p-1 border rounded valor-item" onchange="calcularTudo()"></td><td class="p-2 border total-linha">R$ 0,00</td><td class="p-2 border text-center"><button onclick="this.closest('tr').remove(); calcularTudo();" class="text-red-500 font-bold">X</button></td>`;
+                tbody.insertBefore(tr, document.getElementById('linha-adicionar'));
             });
+            mostrarAba('aba-cadastro'); calcularTudo();
+        };
 
-            try {
-                if(idAtual) {
-                    await updateDoc(doc(db, "pedidos", idAtual), novoPedido);
-                    alert(`Pedido atualizado com sucesso!`);
-                } else {
-                    novoPedido.data_criacao = serverTimestamp();
-                    await addDoc(collection(db, "pedidos"), novoPedido);
-                    alert(`Novo pedido gravado com sucesso!`);
-                }
-                window.location.reload(); 
-            } catch (erro) { 
-                alert("Erro ao salvar o pedido no banco de dados."); 
-                btn.innerHTML = idAtual ? '🔄 Atualizar Pedido Salvo' : '💾 Salvar Novo Pedido'; 
-                btn.classList.remove('opacity-75'); 
-            }
-        });
-
-        // INICIA O SISTEMA
-        carregarMemoriaBanco();
-
+        window.editarCliente = (id,n,t,d,e) => { document.getElementById('cli-id').value=id; document.getElementById('cli-nome').value=n; document.getElementById('cli-endereco').value=e; mostrarAba('aba-clientes'); };
+        window.editarProduto = (id,d,f,v) => { document.getElementById('prod-id').value=id; document.getElementById('prod-desc').value=d; document.getElementById('prod-valor').value=v; mostrarAba('aba-produtos'); };
+        window.excluirCliente = async (id) => { if(confirm("Excluir?")){ await deleteDoc(doc(db,"clientes",id)); carregarMemoriaBanco(); } };
+        window.excluirProduto = async (id) => { if(confirm("Excluir?")){ await deleteDoc(doc(db,"produtos",id)); carregarMemoriaBanco(); } };
+        window.preencherCliente = () => { const c = window.bancoClientes.find(x => x.nome === document.getElementById('input-cliente').value); if(c) document.getElementById('input-endereco').value = c.endereco; };
+        window.preencherProduto = (el) => { const p = window.bancoProdutos.find(x => x.descricao === el.value); if(p){ const tr = el.closest('tr'); tr.querySelector('.valor-item').value = p.valor_base; calcularTudo(); } };
+        window.filtrarPedidos = (t) => { const f = window.bancoPedidos.filter(p => p.cliente_nome.toLowerCase().includes(t.toLowerCase())); renderizarTabelaPedidosNoFilter(f); };
+        
+        function renderizarTabelaPedidosNoFilter(lista) {
+            document.getElementById('tabela-pedidos').innerHTML = lista.map(p => `
+                <tr class="border-b text-sm">
+                    <td class="p-2 border-r font-bold">#${p.numero_sequencial?.toString().padStart(3,'0') || 'S/N'}</td>
+                    <td class="p-2 border-r">${p.data_criacao ? new Date(p.data_criacao.seconds*1000).toLocaleDateString() : '-'}</td>
+                    <td class="p-2 border-r">${p.cliente_nome}</td>
+                    <td class="p-2 border-r">${p.status}</td>
+                    <td class="p-2 border-r">R$ ${p.valor_total}</td>
+                    <td class="p-2 text-center"><button onclick="window.abrirPedidoParaEdicao('${p.id}')" class="bg-gray-800 text-yellow-500 px-2 py-1 rounded">👁️ Abrir</button></td>
+                </tr>`).join('');
+        }
     </script>
+
 </body>
 </html>
