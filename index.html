@@ -23,6 +23,12 @@
         }
 
         function adicionarLinha() {
+            // Verifica se pode adicionar itens
+            if (!podeEditarPedido()) {
+                alert('❌ Não é possível adicionar itens em um pedido que já está em Produção, Em Entrega ou Entregue!');
+                return;
+            }
+            
             const tbody = document.getElementById('tabela-itens');
             const novaLinha = document.createElement('tr');
             novaLinha.className = 'text-sm';
@@ -41,7 +47,102 @@
             tbody.insertBefore(novaLinha, document.getElementById('linha-adicionar'));
         }
 
+        // ==========================================
+        // FUNÇÃO PARA VERIFICAR SE PODE EDITAR
+        // ==========================================
+        function podeEditarPedido() {
+            const statusAtual = document.getElementById('select-status')?.value || 'Orçamento';
+            const statusBloqueados = ['Produção', 'Em Entrega', 'Entregue'];
+            
+            if (statusBloqueados.includes(statusAtual)) {
+                return false;
+            }
+            return true;
+        }
+
+        // ==========================================
+        // FUNÇÃO PARA BLOQUEAR CAMPOS
+        // ==========================================
+        function bloquearCampos(bloquear) {
+            console.log('🔒 Bloqueando campos:', bloquear);
+            
+            // Lista de campos que devem ser bloqueados
+            const campos = [
+                'input-cliente',
+                'input-endereco',
+                'input-km',
+                'input-desconto',
+                'select-pagamento',
+                'input-previsao',
+                'select-financeiro'
+            ];
+            
+            campos.forEach(id => {
+                const campo = document.getElementById(id);
+                if (campo) {
+                    if (bloquear) {
+                        campo.setAttribute('disabled', 'disabled');
+                        campo.classList.add('bg-gray-100', 'cursor-not-allowed');
+                    } else {
+                        campo.removeAttribute('disabled');
+                        campo.classList.remove('bg-gray-100', 'cursor-not-allowed');
+                    }
+                }
+            });
+            
+            // Bloqueia todos os inputs da tabela de itens
+            document.querySelectorAll('#tabela-itens input').forEach(input => {
+                if (bloquear) {
+                    input.setAttribute('disabled', 'disabled');
+                    input.classList.add('bg-gray-100', 'cursor-not-allowed');
+                } else {
+                    input.removeAttribute('disabled');
+                    input.classList.remove('bg-gray-100', 'cursor-not-allowed');
+                }
+            });
+            
+            // Bloqueia botões de remover itens
+            document.querySelectorAll('#tabela-itens button').forEach(btn => {
+                if (bloquear) {
+                    btn.setAttribute('disabled', 'disabled');
+                    btn.classList.add('opacity-50', 'cursor-not-allowed');
+                } else {
+                    btn.removeAttribute('disabled');
+                    btn.classList.remove('opacity-50', 'cursor-not-allowed');
+                }
+            });
+            
+            // Bloqueia botão de adicionar item
+            const btnAdicionar = document.querySelector('#linha-adicionar button');
+            if (btnAdicionar) {
+                if (bloquear) {
+                    btnAdicionar.setAttribute('disabled', 'disabled');
+                    btnAdicionar.classList.add('opacity-50', 'cursor-not-allowed');
+                } else {
+                    btnAdicionar.removeAttribute('disabled');
+                    btnAdicionar.classList.remove('opacity-50', 'cursor-not-allowed');
+                }
+            }
+            
+            // Botão de salvar também é bloqueado?
+            const btnSalvar = document.getElementById('btn-salvar');
+            if (btnSalvar) {
+                if (bloquear) {
+                    btnSalvar.setAttribute('disabled', 'disabled');
+                    btnSalvar.classList.add('opacity-50', 'cursor-not-allowed');
+                } else {
+                    btnSalvar.removeAttribute('disabled');
+                    btnSalvar.classList.remove('opacity-50', 'cursor-not-allowed');
+                }
+            }
+        }
+
         function calcularTudo() {
+            if (!podeEditarPedido()) {
+                // Se não pode editar, não recalcula (mantém valores originais)
+                return;
+            }
+            
             const linhas = document.querySelectorAll('#tabela-itens tr:not(#linha-adicionar)');
             let subtotal = 0;
 
@@ -204,7 +305,7 @@
         <!-- ABA 1 - GESTÃO DE PEDIDO -->
         <div id="aba-cadastro" class="space-y-6">
             <div class="flex justify-between items-center border-b pb-2">
-                <h2 class="text-2xl md:text-3xl font-bold text-gray-800" id="titulo-aba-pedido">Novo Pedido <span id="pdf-n-display"></span></h2>
+                <h2 class="text-2xl md:text-3xl font-bold text-gray-800" id="titulo-aba-pedido">Pedido <span id="pdf-n-display"></span></h2>
                 <input type="hidden" id="pedido-id-atual" value="">
             </div>
             
@@ -214,7 +315,7 @@
                     <h3 class="text-lg font-semibold mb-4 text-gray-700">Dados do Cliente & Frete</h3>
                     <div class="space-y-3">
                         <input type="text" id="input-cliente" list="lista-sugestao-clientes" placeholder="Busque o nome do cliente..." class="w-full p-2 border rounded bg-gray-50 border-blue-300 focus:ring-2 focus:ring-blue-500" onchange="window.preencherCliente()">
-                        <input type="text" id="input-endereco" placeholder="Endereço Completo (Preenche automático)" class="w-full p-2 border rounded bg-gray-50">
+                        <input type="text" id="input-endereco" placeholder="Endereço Completo" class="w-full p-2 border rounded bg-gray-50">
                         <div class="p-3 bg-blue-50 border border-blue-100 rounded">
                             <p class="text-xs font-semibold text-blue-800 mb-2">Cálculo de Frete</p>
                             <div class="flex flex-col md:flex-row gap-2 items-center">
@@ -313,7 +414,7 @@
                                 <td class="p-2 border"><input type="text" placeholder="Fornecedor" class="w-full p-1 border rounded forn-item"></td>
                                 <td class="p-2 border"><input type="number" value="0.00" step="0.01" class="w-24 p-1 border rounded valor-item" onchange="calcularTudo()" onkeyup="calcularTudo()"></td>
                                 <td class="p-2 border font-semibold total-linha">R$ 0,00</td>
-                                <td class="p-2 border text-center"><button onclick="this.closest('tr').remove(); calcularTudo();" class="text-red-500 font-bold hover:text-red-700">X</button></td>
+                                <td class="p-2 border text-center"><button onclick="if(podeEditarPedido()) { this.closest('tr').remove(); calcularTudo(); } else { alert('❌ Não é possível remover itens de um pedido em andamento!'); }" class="text-red-500 font-bold hover:text-red-700">X</button></td>
                             </tr>
                             <tr class="text-sm" id="linha-adicionar">
                                 <td class="p-2 border bg-gray-50 text-center" colspan="6"><button onclick="adicionarLinha()" class="text-blue-600 font-semibold hover:underline w-full py-2">+ Adicionar Item</button></td>
@@ -358,6 +459,12 @@
                         <button id="btn-gerar-pdf" onclick="gerarPDF()" data-total="0,00" class="w-full bg-gray-800 text-white font-bold py-2 rounded hover:bg-gray-900 border border-gray-700 shadow-sm">🖨️ Imprimir PDF</button>
                     </div>
                 </div>
+            </div>
+            
+            <!-- Aviso de bloqueio -->
+            <div id="aviso-bloqueio" class="hidden bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 rounded" role="alert">
+                <p class="font-bold">⚠️ Pedido bloqueado para edição</p>
+                <p>Este pedido está em <span id="status-bloqueio"></span> e não pode ser alterado. Apenas visualização permitida.</p>
             </div>
         </div>
 
@@ -476,7 +583,7 @@
         window.bancoPedidos = [];
 
         // ==========================================
-        // FUNÇÕES DE STATUS COM AUTO-SALVAR
+        // FUNÇÕES DE STATUS COM AUTO-SALVAR E BLOQUEIO
         // ==========================================
         
         window.selecionarStatus = function(novoStatus) {
@@ -513,6 +620,30 @@
             atualizarBarraProgresso(novoStatus);
             
             // ==========================================
+            // BLOQUEAR CAMPOS SE STATUS FOR PRODUÇÃO, EM ENTREGA OU ENTREGUE
+            // ==========================================
+            const statusBloqueados = ['Produção', 'Em Entrega', 'Entregue'];
+            if (statusBloqueados.includes(novoStatus)) {
+                bloquearCampos(true);
+                
+                // Mostra aviso de bloqueio
+                const aviso = document.getElementById('aviso-bloqueio');
+                const spanStatus = document.getElementById('status-bloqueio');
+                if (aviso && spanStatus) {
+                    spanStatus.innerText = novoStatus;
+                    aviso.classList.remove('hidden');
+                }
+            } else {
+                bloquearCampos(false);
+                
+                // Esconde aviso
+                const aviso = document.getElementById('aviso-bloqueio');
+                if (aviso) {
+                    aviso.classList.add('hidden');
+                }
+            }
+            
+            // ==========================================
             // AUTO-SALVAR QUANDO MUDA O STATUS
             // ==========================================
             const pedidoId = document.getElementById('pedido-id-atual').value;
@@ -530,7 +661,7 @@
             }
         }
 
-        // Função para salvar o pedido atual (usada em vários lugares)
+        // Função para salvar o pedido atual
         async function salvarPedidoAtual() {
             if (!auth.currentUser) return;
             
@@ -758,12 +889,12 @@
         }
 
         // ==========================================
-        // EVENTO DO BOTÃO SALVAR (AGORA USA A FUNÇÃO COMPARTILHADA)
+        // EVENTO DO BOTÃO SALVAR
         // ==========================================
         document.getElementById('btn-salvar').addEventListener('click', salvarPedidoAtual);
 
         // ==========================================
-        // DEMAIS FUNÇÕES DE SALVAR (CLIENTES/PRODUTOS)
+        // DEMAIS FUNÇÕES DE SALVAR
         // ==========================================
         document.getElementById('btn-salvar-cliente').addEventListener('click', async () => {
             const id = document.getElementById('cli-id').value;
@@ -833,6 +964,26 @@
                 if (selectStatus) selectStatus.value = pedido.status;
                 atualizarBotoesStatus(pedido.status);
                 atualizarBarraProgresso(pedido.status);
+                
+                // ==========================================
+                // BLOQUEAR CAMPOS SE NECESSÁRIO
+                // ==========================================
+                const statusBloqueados = ['Produção', 'Em Entrega', 'Entregue'];
+                if (statusBloqueados.includes(pedido.status)) {
+                    bloquearCampos(true);
+                    
+                    // Mostra aviso de bloqueio
+                    const aviso = document.getElementById('aviso-bloqueio');
+                    const spanStatus = document.getElementById('status-bloqueio');
+                    if (aviso && spanStatus) {
+                        spanStatus.innerText = pedido.status;
+                        aviso.classList.remove('hidden');
+                    }
+                } else {
+                    bloquearCampos(false);
+                    const aviso = document.getElementById('aviso-bloqueio');
+                    if (aviso) aviso.classList.add('hidden');
+                }
             }
             
             // Carrega itens
@@ -849,7 +1000,7 @@
                         <td class="p-2 border"><input type="text" value="${item.fornecedor || ''}" class="w-full p-1 border rounded forn-item"></td>
                         <td class="p-2 border"><input type="number" value="${item.valor_unitario || 0}" class="w-24 p-1 border rounded valor-item" onchange="calcularTudo()"></td>
                         <td class="p-2 border total-linha">R$ 0,00</td>
-                        <td class="p-2 border text-center"><button onclick="this.closest('tr').remove(); calcularTudo();" class="text-red-500 font-bold">X</button></td>
+                        <td class="p-2 border text-center"><button onclick="if(podeEditarPedido()) { this.closest('tr').remove(); calcularTudo(); } else { alert('❌ Não é possível remover itens de um pedido em andamento!'); }" class="text-red-500 font-bold">X</button></td>
                     `;
                     tbody.insertBefore(tr, document.getElementById('linha-adicionar'));
                 });
@@ -967,6 +1118,13 @@
             // Volta botão para "Salvar Pedido"
             atualizarTextoBotaoSalvar('novo');
             
+            // Desbloqueia campos
+            bloquearCampos(false);
+            
+            // Esconde aviso
+            const aviso = document.getElementById('aviso-bloqueio');
+            if (aviso) aviso.classList.add('hidden');
+            
             const selectStatus = document.getElementById('select-status');
             if (selectStatus) selectStatus.value = 'Orçamento';
             atualizarBotoesStatus('Orçamento');
@@ -979,7 +1137,7 @@
                     <td class="p-2 border"><input type="text" placeholder="Fornecedor" class="w-full p-1 border rounded forn-item"></td>
                     <td class="p-2 border"><input type="number" value="0.00" step="0.01" class="w-24 p-1 border rounded valor-item" onchange="calcularTudo()" onkeyup="calcularTudo()"></td>
                     <td class="p-2 border font-semibold total-linha">R$ 0,00</td>
-                    <td class="p-2 border text-center"><button onclick="this.closest('tr').remove(); calcularTudo();" class="text-red-500 font-bold hover:text-red-700">X</button></td>
+                    <td class="p-2 border text-center"><button onclick="if(podeEditarPedido()) { this.closest('tr').remove(); calcularTudo(); } else { alert('❌ Não é possível remover itens de um pedido em andamento!'); }" class="text-red-500 font-bold hover:text-red-700">X</button></td>
                 </tr>
                 <tr class="text-sm" id="linha-adicionar">
                     <td class="p-2 border bg-gray-50 text-center" colspan="6"><button onclick="adicionarLinha()" class="text-blue-600 font-semibold hover:underline w-full py-2">+ Adicionar Item</button></td>
