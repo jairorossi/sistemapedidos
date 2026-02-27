@@ -274,7 +274,7 @@
                     </div>
                     
                     <div class="flex flex-col gap-2">
-                        <button class="w-full bg-green-600 text-white font-bold py-2 rounded hover:bg-green-700">💾 Salvar Pedido</button>
+                        <button id="btn-salvar" class="w-full bg-green-600 text-white font-bold py-2 rounded hover:bg-green-700 transition">💾 Salvar Pedido</button>
                         <button id="btn-gerar-pdf" onclick="gerarPDF()" data-total="0,00" class="w-full bg-gray-800 text-white font-bold py-2 rounded hover:bg-gray-900 border border-gray-700 shadow-sm">🖨️ Imprimir / PDF A4</button>
                     </div>
                 </div>
@@ -396,5 +396,79 @@
             </div>
         </div>
     </div>
+	<script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyBb8UGRV8qcjV6-_kd7WucWhoJBKSHcUac",
+            authDomain: "mpleaoerp.firebaseapp.com",
+            projectId: "mpleaoerp",
+            storageBucket: "mpleaoerp.firebasestorage.app",
+            messagingSenderId: "806362757682",
+            appId: "1:806362757682:web:3cefbea0483af0ef251a2b"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        // Quando clicar em Salvar Pedido
+        document.getElementById('btn-salvar').addEventListener('click', async () => {
+            const btn = document.getElementById('btn-salvar');
+            const textoOriginal = btn.innerHTML;
+            btn.innerHTML = 'Salvando na nuvem...';
+            btn.classList.add('opacity-75');
+
+            // 1. Coleta os dados básicos
+            const cliente = document.getElementById('input-cliente').value || 'Cliente Balcão';
+            const endereco = document.getElementById('input-endereco').value || '';
+            const totalTexto = document.getElementById('btn-gerar-pdf').getAttribute('data-total') || '0,00';
+            const totalGeral = parseFloat(totalTexto.replace(',', '.'));
+
+            // 2. Coleta os itens da tabela
+            const itensPedido = [];
+            const linhasTr = document.querySelectorAll('#tabela-itens tr:not(#linha-adicionar)');
+            linhasTr.forEach(linha => {
+                const qtd = parseFloat(linha.querySelector('.qtd-item')?.value) || 0;
+                const desc = linha.querySelector('.desc-item')?.value || '';
+                const valor = parseFloat(linha.querySelector('.valor-item')?.value) || 0;
+                
+                if (desc !== '') {
+                    itensPedido.push({ quantidade: qtd, descricao: desc, valor_unitario: valor, total_linha: qtd * valor });
+                }
+            });
+
+            // 3. Monta o "Pacote" para enviar ao Firebase
+            const novoPedido = {
+                cliente_nome: cliente,
+                cliente_endereco: endereco,
+                itens: itensPedido,
+                valor_total: totalGeral,
+                status: "Orçamento",
+                data_criacao: serverTimestamp(), // Pega a hora exata do servidor do Google
+                editando_por: null // Aqui está a base para a nossa trava de segurança futura!
+            };
+
+            try {
+                // 4. Envia para a coleção "pedidos"
+                const docRef = await addDoc(collection(db, "pedidos"), novoPedido);
+                
+                btn.innerHTML = '✅ Pedido Salvo!';
+                btn.classList.replace('bg-green-600', 'bg-blue-600');
+                
+                // Limpa a tela após 2 segundos para o próximo pedido
+                setTimeout(() => {
+                    alert(`Pedido gravado com sucesso! ID: ${docRef.id}`);
+                    window.location.reload(); 
+                }, 2000);
+
+            } catch (erro) {
+                console.error("Erro ao salvar: ", erro);
+                alert("Erro ao conectar com o banco de dados.");
+                btn.innerHTML = textoOriginal;
+                btn.classList.remove('opacity-75');
+            }
+        });
+    </script>
 </body>
 </html>
