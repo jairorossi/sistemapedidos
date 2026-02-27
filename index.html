@@ -12,9 +12,6 @@
             background: linear-gradient(to right, #f9fafb, #ffffff);
             border-left: 4px solid #3b82f6;
         }
-        .status-sucesso { color: #059669; }
-        .status-erro { color: #dc2626; }
-        .status-consultando { color: #2563eb; }
         
         .financeiro-card {
             transition: all 0.2s;
@@ -23,17 +20,31 @@
             transform: translateY(-2px);
             box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1);
         }
-        .atrasado {
-            background-color: #fee2e2;
-            border-left: 4px solid #dc2626;
+        
+        .status-pago {
+            background-color: #d1fae5;
+            border-left: 4px solid #10b981;
         }
-        .a-vencer {
+        .status-pendente {
             background-color: #fef3c7;
             border-left: 4px solid #f59e0b;
         }
-        .pago {
-            background-color: #d1fae5;
-            border-left: 4px solid #10b981;
+        .status-atrasado {
+            background-color: #fee2e2;
+            border-left: 4px solid #dc2626;
+        }
+        
+        .badge-pago {
+            background-color: #10b981;
+            color: white;
+        }
+        .badge-pendente {
+            background-color: #f59e0b;
+            color: white;
+        }
+        .badge-atrasado {
+            background-color: #dc2626;
+            color: white;
         }
     </style>
     
@@ -51,8 +62,9 @@
             botoes.forEach(btn => document.getElementById(btn).classList.remove('bg-gray-700'));
             document.getElementById('btn-' + abaId.split('-')[1]).classList.add('bg-gray-700');
             
+            // Se for aba financeiro, atualiza os dados
             if (abaId === 'aba-financeiro') {
-                atualizarDashboardFinanceiro();
+                window.carregarDadosFinanceiros();
             }
         }
 
@@ -86,7 +98,7 @@
         function gerarOpcoesProdutos() {
             if (!window.bancoProdutos) return '';
             return window.bancoProdutos.map(p => 
-                `<option value="${p.descricao}" data-valor="${p.valor_base}" data-forn="${p.fornecedor || ''}">${p.descricao} - R$ ${parseFloat(p.valor_base).toFixed(2).replace('.', ',')}</option>`
+                `<option value="${p.descricao}" data-valor="${p.valor_base}" data-forn="${p.fornecedor || ''}">${p.descricao} - ${formatarValorReais(p.valor_base)}</option>`
             ).join('');
         }
 
@@ -100,7 +112,7 @@
         // FUNÇÕES DE FORMATAÇÃO
         // ==========================================
         
-        function formatarMoeda(valor) {
+        function formatarValorReais(valor) {
             if (!valor && valor !== 0) return 'R$ 0,00';
             return 'R$ ' + parseFloat(valor).toFixed(2).replace('.', ',');
         }
@@ -109,10 +121,8 @@
             let numero = input.value.replace(/\D/g, '');
             
             if (numero.length <= 10) {
-                // Telefone fixo: (XX) XXXX-XXXX
                 numero = numero.replace(/^(\d{2})(\d{4})(\d{4})/, '($1) $2-$3');
             } else {
-                // Celular: (XX) 9XXXX-XXXX
                 numero = numero.replace(/^(\d{2})(\d{5})(\d{4})/, '($1) $2-$3');
             }
             
@@ -126,13 +136,14 @@
                 return;
             }
             
-            // Converte para número com centavos
             let numero = parseInt(valor) / 100;
             input.value = numero.toFixed(2).replace('.', ',');
         }
 
-        function formatarValorReais(valor) {
-            return 'R$ ' + parseFloat(valor).toFixed(2).replace('.', ',');
+        function formatarDataParaExibir(dataISO) {
+            if (!dataISO) return '-';
+            const data = new Date(dataISO + 'T12:00:00');
+            return data.toLocaleDateString('pt-BR');
         }
 
         // ==========================================
@@ -159,7 +170,6 @@
             const valorDesconto = subtotal * (pctDesconto / 100);
             const subtotalComDesconto = subtotal - valorDesconto;
 
-            // NOVO: Acréscimo
             const acrescimoTexto = document.getElementById('input-acrescimo').value || '0,00';
             const acrescimo = parseFloat(acrescimoTexto.replace(/[^\d,]/g, '').replace(',', '.')) || 0;
 
@@ -594,14 +604,12 @@
                                 <input type="number" id="input-desconto" value="0" min="0" class="w-full p-2 border rounded bg-gray-50" onchange="calcularTudo()" onkeyup="calcularTudo()">
                             </div>
                             
-                            <!-- NOVO: Acréscimo -->
                             <div>
                                 <label class="text-xs text-gray-500">Acréscimo (R$)</label>
                                 <input type="text" id="input-acrescimo" value="0,00" class="w-full p-2 border rounded bg-gray-50 text-right" onchange="calcularTudo()" onkeyup="formatarValorInput(this); calcularTudo()">
                             </div>
                         </div>
                         
-                        <!-- NOVO: Motivo do acréscimo -->
                         <div>
                             <label class="text-xs text-gray-500">Motivo do acréscimo</label>
                             <input type="text" id="input-motivo-acrescimo" placeholder="Ex: 5 fechaduras extras..." class="w-full p-2 border rounded bg-gray-50">
@@ -799,10 +807,11 @@
             </div>
         </div>
 
-        <!-- ========== ABA 5 - FINANCEIRO ========== -->
+        <!-- ========== ABA 5 - FINANCEIRO (FUNCIONAL) ========== -->
         <div id="aba-financeiro" class="hidden space-y-6">
             <h2 class="text-2xl md:text-3xl font-bold text-gray-800 border-b pb-2">💰 Módulo Financeiro</h2>
             
+            <!-- Cards de Resumo (ATUALIZADOS EM TEMPO REAL) -->
             <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div class="bg-white p-4 rounded-lg shadow-sm financeiro-card border-l-4 border-blue-500">
                     <p class="text-xs text-gray-500 uppercase">Total a Receber</p>
@@ -829,26 +838,27 @@
                 </div>
             </div>
             
+            <!-- Filtros -->
             <div class="bg-white p-4 rounded-lg shadow-sm">
                 <div class="flex flex-col md:flex-row justify-between items-center gap-4">
                     <div class="flex gap-2">
-                        <select id="filtro-status-financeiro" class="p-2 border rounded text-sm">
+                        <select id="filtro-status-financeiro" class="p-2 border rounded text-sm" onchange="window.filtrarFinanceiro()">
                             <option value="todos">Todos os status</option>
-                            <option value="A Receber">A Receber</option>
-                            <option value="Pago">Pago</option>
-                            <option value="Parcial">Parcial</option>
+                            <option value="pendente">A Receber</option>
+                            <option value="pago">Pago</option>
                             <option value="atrasado">Em atraso</option>
                         </select>
-                        <select id="filtro-cliente-financeiro" class="p-2 border rounded text-sm">
+                        <select id="filtro-cliente-financeiro" class="p-2 border rounded text-sm" onchange="window.filtrarFinanceiro()">
                             <option value="todos">Todos os clientes</option>
                         </select>
                     </div>
                     <div>
-                        <input type="text" placeholder="🔍 Buscar..." class="p-2 border rounded w-64 text-sm" onkeyup="filtrarFinanceiro(this.value)">
+                        <input type="text" id="busca-financeiro" placeholder="🔍 Buscar..." class="p-2 border rounded w-64 text-sm" onkeyup="window.filtrarFinanceiro()">
                     </div>
                 </div>
             </div>
             
+            <!-- Tabela de Parcelas (COM BOTÃO PARA RECEBER) -->
             <div class="bg-white p-4 md:p-6 rounded-lg shadow-sm">
                 <h3 class="text-lg font-semibold mb-4 text-gray-700">📋 Contas a Receber</h3>
                 <div class="overflow-x-auto">
@@ -872,31 +882,32 @@
                 </div>
             </div>
             
+            <!-- Gráfico de Previsão (BASEADO EM DADOS REAIS) -->
             <div class="bg-white p-4 md:p-6 rounded-lg shadow-sm">
                 <h3 class="text-lg font-semibold mb-4 text-gray-700">📊 Previsão de Recebimento</h3>
-                <div class="grid grid-cols-1 md:grid-cols-6 gap-2 h-40 items-end">
+                <div class="grid grid-cols-1 md:grid-cols-6 gap-2 h-40 items-end" id="grafico-previsao">
                     <div class="text-center">
-                        <div class="bg-blue-500 h-20 rounded-t-lg" style="height: 40px;" title="R$ 0,00"></div>
+                        <div class="bg-blue-500 rounded-t-lg transition-all duration-500" id="barra-jan" style="height: 0px;" title="R$ 0,00"></div>
                         <span class="text-xs">Jan</span>
                     </div>
                     <div class="text-center">
-                        <div class="bg-blue-500 h-20 rounded-t-lg" style="height: 60px;" title="R$ 0,00"></div>
+                        <div class="bg-blue-500 rounded-t-lg transition-all duration-500" id="barra-fev" style="height: 0px;" title="R$ 0,00"></div>
                         <span class="text-xs">Fev</span>
                     </div>
                     <div class="text-center">
-                        <div class="bg-blue-500 h-20 rounded-t-lg" style="height: 30px;" title="R$ 0,00"></div>
+                        <div class="bg-blue-500 rounded-t-lg transition-all duration-500" id="barra-mar" style="height: 0px;" title="R$ 0,00"></div>
                         <span class="text-xs">Mar</span>
                     </div>
                     <div class="text-center">
-                        <div class="bg-blue-500 h-20 rounded-t-lg" style="height: 80px;" title="R$ 0,00"></div>
+                        <div class="bg-blue-500 rounded-t-lg transition-all duration-500" id="barra-abr" style="height: 0px;" title="R$ 0,00"></div>
                         <span class="text-xs">Abr</span>
                     </div>
                     <div class="text-center">
-                        <div class="bg-blue-500 h-20 rounded-t-lg" style="height: 50px;" title="R$ 0,00"></div>
+                        <div class="bg-blue-500 rounded-t-lg transition-all duration-500" id="barra-mai" style="height: 0px;" title="R$ 0,00"></div>
                         <span class="text-xs">Mai</span>
                     </div>
                     <div class="text-center">
-                        <div class="bg-blue-500 h-20 rounded-t-lg" style="height: 70px;" title="R$ 0,00"></div>
+                        <div class="bg-blue-500 rounded-t-lg transition-all duration-500" id="barra-jun" style="height: 0px;" title="R$ 0,00"></div>
                         <span class="text-xs">Jun</span>
                     </div>
                 </div>
@@ -952,7 +963,7 @@
         window.bancoClientes = []; 
         window.bancoProdutos = []; 
         window.bancoPedidos = [];
-        window.parcelasFinanceiro = [];
+        window.bancoParcelas = []; // NOVO: Array de parcelas financeiras
 
         // ==========================================
         // FUNÇÕES DE CEP
@@ -1056,7 +1067,7 @@
         }
 
         // ==========================================
-        // FUNÇÕES FINANCEIRAS
+        // FUNÇÕES FINANCEIRAS (TOTALMENTE FUNCIONAIS)
         // ==========================================
         
         window.atualizarParcelas = function() {
@@ -1070,7 +1081,8 @@
             }
         }
 
-        function gerarParcelas(pedidoId, clienteNome, valorTotal, condicao, primeiroVencimento) {
+        // Função para gerar parcelas a partir de um pedido
+        async function gerarParcelas(pedidoId, clienteNome, valorTotal, condicao, primeiroVencimento) {
             let numeroParcelas = 1;
             
             if (condicao === 'Vista') {
@@ -1084,13 +1096,13 @@
             const valorParcela = valorTotal / numeroParcelas;
             const parcelas = [];
             
-            let dataVencimento = primeiroVencimento ? new Date(primeiroVencimento) : new Date();
+            let dataVencimento = primeiroVencimento ? new Date(primeiroVencimento + 'T12:00:00') : new Date();
             
             for (let i = 0; i < numeroParcelas; i++) {
                 const vencimento = new Date(dataVencimento);
                 vencimento.setMonth(vencimento.getMonth() + i);
                 
-                parcelas.push({
+                const parcela = {
                     id: `${pedidoId}_${i+1}`,
                     pedidoId: pedidoId,
                     cliente: clienteNome,
@@ -1098,101 +1110,246 @@
                     totalParcelas: numeroParcelas,
                     vencimento: vencimento.toISOString().split('T')[0],
                     valor: valorParcela,
-                    status: 'A Receber',
-                    dataPagamento: null
-                });
+                    status: 'pendente',
+                    dataPagamento: null,
+                    dataCriacao: new Date().toISOString()
+                };
+                
+                parcelas.push(parcela);
+                
+                // Salva no Firebase (coleção "parcelas")
+                try {
+                    await addDoc(collection(db, "parcelas"), parcela);
+                } catch (error) {
+                    console.error('Erro ao salvar parcela:', error);
+                }
             }
             
             return parcelas;
         }
 
-        function atualizarDashboardFinanceiro() {
-            const totalReceber = 15750.90;
-            const totalVencer = 8250.50;
-            const totalAtrasado = 2340.80;
-            const totalRecebidoMes = 12450.30;
+        // Função para marcar parcela como paga
+        window.receberParcela = async function(parcelaId) {
+            if (!confirm('Confirmar recebimento desta parcela?')) return;
             
+            try {
+                // Atualiza no Firebase
+                const parcelaRef = doc(db, "parcelas", parcelaId);
+                await updateDoc(parcelaRef, {
+                    status: 'pago',
+                    dataPagamento: new Date().toISOString().split('T')[0]
+                });
+                
+                alert('✅ Parcela recebida com sucesso!');
+                
+                // Recarrega dados financeiros
+                await carregarParcelasDoFirebase();
+                window.carregarDadosFinanceiros();
+                
+            } catch (error) {
+                console.error('Erro ao receber parcela:', error);
+                alert('❌ Erro ao registrar pagamento!');
+            }
+        }
+
+        // Função para carregar parcelas do Firebase
+        async function carregarParcelasDoFirebase() {
+            try {
+                const parcelasSnap = await getDocs(collection(db, "parcelas"));
+                window.bancoParcelas = parcelasSnap.docs.map(doc => ({ 
+                    firebaseId: doc.id,
+                    ...doc.data() 
+                }));
+                
+                console.log(`📊 ${window.bancoParcelas.length} parcelas carregadas`);
+                
+            } catch (error) {
+                console.error('Erro ao carregar parcelas:', error);
+                window.bancoParcelas = [];
+            }
+        }
+
+        // Função principal para carregar dados financeiros
+        window.carregarDadosFinanceiros = async function() {
+            await carregarParcelasDoFirebase();
+            
+            // Calcula totais
+            let totalReceber = 0;
+            let totalVencer = 0;
+            let totalAtrasado = 0;
+            let totalRecebidoMes = 0;
+            
+            const hoje = new Date();
+            const mesAtual = hoje.getMonth();
+            const anoAtual = hoje.getFullYear();
+            
+            // Arrays para gráfico (próximos 6 meses)
+            const valoresPorMes = [0, 0, 0, 0, 0, 0];
+            
+            window.bancoParcelas.forEach(parcela => {
+                const valor = parseFloat(parcela.valor) || 0;
+                const vencimento = new Date(parcela.vencimento + 'T12:00:00');
+                const diasAteVencimento = Math.ceil((vencimento - hoje) / (1000 * 60 * 60 * 24));
+                
+                if (parcela.status === 'pendente') {
+                    totalReceber += valor;
+                    
+                    if (diasAteVencimento < 0) {
+                        totalAtrasado += valor;
+                    } else if (diasAteVencimento <= 30) {
+                        totalVencer += valor;
+                    }
+                    
+                    // Para o gráfico (próximos 6 meses)
+                    const diffMeses = (vencimento.getMonth() - hoje.getMonth()) + 
+                                    (vencimento.getFullYear() - hoje.getFullYear()) * 12;
+                    if (diffMeses >= 0 && diffMeses < 6) {
+                        valoresPorMes[diffMeses] += valor;
+                    }
+                    
+                } else if (parcela.status === 'pago') {
+                    const dataPagamento = parcela.dataPagamento ? new Date(parcela.dataPagamento + 'T12:00:00') : null;
+                    if (dataPagamento && 
+                        dataPagamento.getMonth() === mesAtual && 
+                        dataPagamento.getFullYear() === anoAtual) {
+                        totalRecebidoMes += valor;
+                    }
+                }
+            });
+            
+            // Atualiza cards
             document.getElementById('total-a-receber').innerText = formatarValorReais(totalReceber);
             document.getElementById('total-a-vencer').innerText = formatarValorReais(totalVencer);
             document.getElementById('total-atrasado').innerText = formatarValorReais(totalAtrasado);
             document.getElementById('total-recebido-mes').innerText = formatarValorReais(totalRecebidoMes);
             
+            // Atualiza gráfico
+            const maxValor = Math.max(...valoresPorMes, 1);
+            const meses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun'];
+            
+            for (let i = 0; i < 6; i++) {
+                const barra = document.getElementById(`barra-${meses[i].toLowerCase()}`);
+                if (barra) {
+                    const altura = valoresPorMes[i] > 0 ? (valoresPorMes[i] / maxValor) * 140 : 0;
+                    barra.style.height = altura + 'px';
+                    barra.title = formatarValorReais(valoresPorMes[i]);
+                }
+            }
+            
+            // Atualiza select de clientes
             const selectCliente = document.getElementById('filtro-cliente-financeiro');
             selectCliente.innerHTML = '<option value="todos">Todos os clientes</option>';
             window.bancoClientes.forEach(c => {
                 selectCliente.innerHTML += `<option value="${c.nome}">${c.nome}</option>`;
             });
             
-            const dadosExemplo = [
-                { cliente: 'João Silva', pedido: '#001', parcela: '1/3', vencimento: '2024-03-15', valor: 1250.00, status: 'A Receber', dias: 5 },
-                { cliente: 'Maria Santos', pedido: '#002', parcela: '2/2', vencimento: '2024-02-28', valor: 3450.50, status: 'Atrasado', dias: -15 },
-                { cliente: 'Pedro Oliveira', pedido: '#003', parcela: 'Única', vencimento: '2024-03-10', valor: 890.00, status: 'Pago', dias: 0 },
-                { cliente: 'Ana Costa', pedido: '#004', parcela: '1/1', vencimento: '2024-03-20', valor: 2300.00, status: 'A Receber', dias: 10 },
-                { cliente: 'Carlos Souza', pedido: '#005', parcela: '3/5', vencimento: '2024-02-01', valor: 850.30, status: 'Atrasado', dias: -25 },
-            ];
+            // Renderiza tabela
+            window.filtrarFinanceiro();
+        }
+
+        // Função para filtrar parcelas
+        window.filtrarFinanceiro = function() {
+            const statusFiltro = document.getElementById('filtro-status-financeiro').value;
+            const clienteFiltro = document.getElementById('filtro-cliente-financeiro').value;
+            const busca = document.getElementById('busca-financeiro')?.value.toLowerCase() || '';
             
-            let html = '';
-            dadosExemplo.forEach(p => {
-                let statusClass = '';
-                let statusText = p.status;
-                let diasClass = '';
+            const hoje = new Date();
+            
+            let parcelasFiltradas = window.bancoParcelas.filter(p => {
+                // Filtro por status
+                if (statusFiltro !== 'todos' && p.status !== statusFiltro) return false;
                 
-                if (p.status === 'Pago') {
-                    statusClass = 'pago';
-                    diasClass = 'text-green-600';
-                } else if (p.status === 'Atrasado') {
-                    statusClass = 'atrasado';
-                    diasClass = 'text-red-600 font-bold';
-                } else {
-                    statusClass = 'a-vencer';
-                    diasClass = 'text-yellow-600';
+                // Filtro por cliente
+                if (clienteFiltro !== 'todos' && p.cliente !== clienteFiltro) return false;
+                
+                // Filtro por busca (cliente ou pedido)
+                if (busca) {
+                    const clienteMatch = p.cliente?.toLowerCase().includes(busca);
+                    const pedidoMatch = p.pedidoId?.toLowerCase().includes(busca);
+                    if (!clienteMatch && !pedidoMatch) return false;
                 }
                 
-                const diasTexto = p.dias > 0 ? `Faltam ${p.dias} dias` : (p.dias < 0 ? `${Math.abs(p.dias)} dias atrasado` : 'Vence hoje');
-                
-                html += `
-                <tr class="border-b hover:bg-gray-50 ${statusClass}">
-                    <td class="p-2 border">${p.cliente}</td>
-                    <td class="p-2 border">${p.pedido}</td>
-                    <td class="p-2 border">${p.parcela}</td>
-                    <td class="p-2 border">${new Date(p.vencimento).toLocaleDateString()}</td>
-                    <td class="p-2 border">${formatarValorReais(p.valor)}</td>
-                    <td class="p-2 border">
-                        <span class="px-2 py-1 rounded-full text-xs font-medium 
-                            ${p.status === 'Pago' ? 'bg-green-100 text-green-800' : 
-                              p.status === 'Atrasado' ? 'bg-red-100 text-red-800' : 
-                              'bg-yellow-100 text-yellow-800'}">
-                            ${p.status}
-                        </span>
-                    </td>
-                    <td class="p-2 border ${diasClass}">${diasTexto}</td>
-                    <td class="p-2 border">
-                        <button onclick="marcarComoPago('${p.pedido}', '${p.parcela}')" class="text-green-600 hover:text-green-800 mr-2" title="Marcar como pago">
-                            ✅
-                        </button>
-                        <button onclick="verDetalhes('${p.pedido}')" class="text-blue-600 hover:text-blue-800" title="Ver detalhes">
-                            👁️
-                        </button>
-                    </td>
-                </tr>`;
+                return true;
             });
+            
+            // Ordena por vencimento (mais antigos primeiro)
+            parcelasFiltradas.sort((a, b) => new Date(a.vencimento) - new Date(b.vencimento));
+            
+            let html = '';
+            
+            if (parcelasFiltradas.length === 0) {
+                html = '<tr><td colspan="8" class="p-4 text-center text-gray-500">Nenhuma parcela encontrada</td></tr>';
+            } else {
+                parcelasFiltradas.forEach(p => {
+                    const vencimento = new Date(p.vencimento + 'T12:00:00');
+                    const diasAteVencimento = Math.ceil((vencimento - hoje) / (1000 * 60 * 60 * 24));
+                    
+                    let statusClass = '';
+                    let statusText = '';
+                    let diasTexto = '';
+                    let diasClass = '';
+                    
+                    if (p.status === 'pago') {
+                        statusClass = 'badge-pago';
+                        statusText = 'Pago';
+                        diasTexto = 'Pago';
+                        diasClass = 'text-green-600';
+                    } else if (diasAteVencimento < 0) {
+                        statusClass = 'badge-atrasado';
+                        statusText = 'Atrasado';
+                        diasTexto = `${Math.abs(diasAteVencimento)} dias atrasado`;
+                        diasClass = 'text-red-600 font-bold';
+                    } else if (diasAteVencimento === 0) {
+                        statusClass = 'badge-pendente';
+                        statusText = 'Vence hoje';
+                        diasTexto = 'Vence hoje';
+                        diasClass = 'text-orange-600 font-bold';
+                    } else {
+                        statusClass = 'badge-pendente';
+                        statusText = 'A Receber';
+                        diasTexto = `Faltam ${diasAteVencimento} dias`;
+                        diasClass = 'text-yellow-600';
+                    }
+                    
+                    const parcelaTexto = p.totalParcelas > 1 ? `${p.numeroParcela}/${p.totalParcelas}` : 'Única';
+                    
+                    html += `
+                    <tr class="border-b hover:bg-gray-50 ${p.status === 'pago' ? 'status-pago' : (diasAteVencimento < 0 ? 'status-atrasado' : 'status-pendente')}">
+                        <td class="p-2 border">${p.cliente}</td>
+                        <td class="p-2 border">#${p.pedidoId.substring(0,6)}</td>
+                        <td class="p-2 border">${parcelaTexto}</td>
+                        <td class="p-2 border">${formatarDataParaExibir(p.vencimento)}</td>
+                        <td class="p-2 border">${formatarValorReais(p.valor)}</td>
+                        <td class="p-2 border">
+                            <span class="px-2 py-1 rounded-full text-xs font-medium text-white ${statusClass}">
+                                ${statusText}
+                            </span>
+                        </td>
+                        <td class="p-2 border ${diasClass}">${diasTexto}</td>
+                        <td class="p-2 border">
+                            ${p.status !== 'pago' ? `
+                                <button onclick="window.receberParcela('${p.firebaseId}')" class="text-green-600 hover:text-green-800 mr-2" title="Receber parcela">
+                                    💰 Receber
+                                </button>
+                            ` : '✅'}
+                            <button onclick="window.verDetalhesParcela('${p.pedidoId}')" class="text-blue-600 hover:text-blue-800" title="Ver pedido">
+                                👁️
+                            </button>
+                        </td>
+                    </tr>`;
+                });
+            }
             
             document.getElementById('tabela-financeiro').innerHTML = html;
         }
 
-        window.filtrarFinanceiro = function(termo) {
-            console.log('Filtrando financeiro:', termo);
-        }
-
-        window.marcarComoPago = function(pedido, parcela) {
-            if (confirm(`Marcar parcela ${parcela} do pedido ${pedido} como pago?`)) {
-                alert('✅ Parcela marcada como paga!');
-                atualizarDashboardFinanceiro();
+        window.verDetalhesParcela = function(pedidoId) {
+            const pedido = window.bancoPedidos.find(p => p.id === pedidoId);
+            if (pedido) {
+                window.abrirPedidoParaEdicao(pedidoId);
+            } else {
+                alert('Pedido não encontrado!');
             }
-        }
-
-        window.verDetalhes = function(pedido) {
-            alert(`Detalhes do pedido ${pedido} (em breve)`);
         }
 
         // ==========================================
@@ -1272,8 +1429,7 @@
                 'select-condicao-pagamento',
                 'input-parcelas',
                 'input-primeiro-vencimento',
-                'input-previsao',
-                'select-financeiro'
+                'input-previsao'
             ];
             
             campos.forEach(id => {
@@ -1413,14 +1569,20 @@
 
         async function carregarMemoriaBanco() {
             try {
+                console.log('📥 Carregando clientes...');
                 const cliSnap = await getDocs(collection(db, "clientes"));
                 window.bancoClientes = cliSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 
+                console.log('📥 Carregando produtos...');
                 const prodSnap = await getDocs(collection(db, "produtos"));
                 window.bancoProdutos = prodSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 
+                console.log('📥 Carregando pedidos...');
                 const pedSnap = await getDocs(collection(db, "pedidos"));
                 window.bancoPedidos = pedSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                
+                console.log('📥 Carregando parcelas...');
+                await carregarParcelasDoFirebase();
                 
                 window.bancoPedidos.sort((a,b) => (b.data_criacao?.seconds || 0) - (a.data_criacao?.seconds || 0));
                 
@@ -1484,7 +1646,7 @@
             document.getElementById('lista-sugestao-clientes').innerHTML = window.bancoClientes.map(c => `<option value="${c.nome}">`).join('');
             document.getElementById('lista-sugestao-produtos').innerHTML = window.bancoProdutos.map(p => `<option value="${p.descricao}">`).join('');
             
-            // Atualiza os selects de produtos em todas as linhas
+            // Atualiza os selects de produtos
             document.querySelectorAll('#tabela-itens .desc-item').forEach(select => {
                 const currentValue = select.value;
                 select.innerHTML = '<option value="">Selecione um produto</option>';
@@ -1520,40 +1682,28 @@
         window.novoPedido = function() {
             console.log('➕ Iniciando novo pedido - reset completo');
             
-            // ==========================================
-            // RESET COMPLETO - COMO UM REFRESH
-            // ==========================================
-            
-            // 1. ID do pedido
             document.getElementById('pedido-id-atual').value = '';
-            
-            // 2. Cliente
             document.getElementById('input-cliente').value = '';
             document.getElementById('input-endereco').value = '';
             document.getElementById('dados-cliente-container').classList.add('hidden');
             
-            // 3. Frete
             document.getElementById('input-km').value = '';
             document.getElementById('input-litro').value = '4.20';
             document.getElementById('input-consumo').value = '9.0';
             document.getElementById('input-pedagio').value = '0,00';
             
-            // 4. Ajustes
             document.getElementById('input-desconto').value = '0';
             document.getElementById('input-acrescimo').value = '0,00';
             document.getElementById('input-motivo-acrescimo').value = '';
             
-            // 5. Pagamento
             document.getElementById('select-pagamento').value = 'Pix';
             document.getElementById('select-condicao-pagamento').value = 'Vista';
             document.getElementById('div-parcelas-personalizado').classList.add('hidden');
             document.getElementById('input-primeiro-vencimento').value = '';
             
-            // 6. Datas e status
             document.getElementById('input-previsao').value = '';
             document.getElementById('pdf-n-display').innerText = '';
             
-            // 7. Resultados
             document.getElementById('custo-combustivel').innerText = 'R$ 0,00';
             document.getElementById('custo-pedagio').innerText = 'R$ 0,00';
             document.getElementById('custo-total-frete').innerText = 'R$ 0,00';
@@ -1566,7 +1716,6 @@
             document.getElementById('display-total').innerText = 'Total: R$ 0,00';
             document.getElementById('btn-gerar-pdf').setAttribute('data-total', '0,00');
             
-            // 8. Botões
             document.getElementById('btn-cancelar-pedido').classList.add('hidden');
             
             const btnSalvar = document.getElementById('btn-salvar');
@@ -1574,11 +1723,9 @@
             btnSalvar.classList.remove('bg-blue-600', 'hover:bg-blue-700');
             btnSalvar.classList.add('bg-green-600', 'hover:bg-green-700');
             
-            // 9. Status
             const selectStatus = document.getElementById('select-status');
             if (selectStatus) selectStatus.value = 'Orçamento';
             
-            // Atualiza visual dos botões de status
             const botoes = document.querySelectorAll('[id^="status-"]');
             botoes.forEach(btn => {
                 btn.classList.remove('border-yellow-500', 'bg-yellow-50', 'text-yellow-700',
@@ -1594,7 +1741,6 @@
                 btnOrcamento.classList.add('border-yellow-500', 'bg-yellow-50', 'text-yellow-700');
             }
             
-            // 10. Barra de progresso
             const barra = document.getElementById('progress-bar');
             const label = document.getElementById('status-label');
             if (barra) {
@@ -1606,10 +1752,8 @@
                 label.innerHTML = 'Status: Orçamento - Orçamento';
             }
             
-            // 11. Aviso de bloqueio
             document.getElementById('aviso-bloqueio').classList.add('hidden');
             
-            // 12. Tabela de itens - RECRIA DO ZERO
             const tbody = document.getElementById('tabela-itens');
             tbody.innerHTML = `
                 <tr class="text-sm">
@@ -1632,7 +1776,6 @@
                 </tr>
             `;
             
-            // 13. Mensagem de confirmação
             setTimeout(() => {
                 alert('✅ Novo pedido iniciado! Comece selecionando um cliente.');
             }, 100);
@@ -1722,20 +1865,34 @@
             btn.innerHTML = '💾 Salvando...';
             
             try {
+                let pedidoId = id;
+                
                 if(id) {
                     await updateDoc(doc(db,"pedidos",id), dados);
-                    alert('✅ Pedido atualizado com sucesso!');
                 } else { 
                     dados.numero_sequencial = await obterProximoNumeroPedido(); 
                     dados.data_criacao = serverTimestamp(); 
                     const docRef = await addDoc(collection(db,"pedidos"), dados);
+                    pedidoId = docRef.id;
                     document.getElementById('pedido-id-atual').value = docRef.id;
                     document.getElementById('btn-cancelar-pedido').classList.remove('hidden');
                     atualizarTextoBotaoSalvar('editando');
-                    alert('✅ Novo pedido salvo com sucesso!');
                 }
                 
-                carregarMemoriaBanco();
+                // ==========================================
+                // GERA AS PARCELAS FINANCEIRAS
+                // ==========================================
+                await gerarParcelas(
+                    pedidoId, 
+                    nomeCliente, 
+                    dados.valor_total, 
+                    condicaoPagamento, 
+                    primeiroVencimento
+                );
+                
+                alert('✅ Pedido salvo com sucesso!');
+                
+                await carregarMemoriaBanco();
                 
             } catch (error) {
                 console.error('Erro ao salvar:', error);
@@ -1887,7 +2044,6 @@
                 window.selecionarStatus(pedido.status);
             }
             
-            // Carrega dados do frete
             if (pedido.frete) {
                 document.getElementById('input-km').value = pedido.frete.distancia || '0';
                 document.getElementById('input-litro').value = pedido.frete.preco_combustivel || '4.20';
@@ -1904,12 +2060,10 @@
                 }
             }
             
-            // Carrega descontos e acréscimos
             if (pedido.desconto) document.getElementById('input-desconto').value = pedido.desconto;
             if (pedido.acrescimo) document.getElementById('input-acrescimo').value = pedido.acrescimo.toFixed(2).replace('.', ',');
             if (pedido.motivo_acrescimo) document.getElementById('input-motivo-acrescimo').value = pedido.motivo_acrescimo;
             
-            // Carrega condições de pagamento
             if (pedido.condicao_pagamento) {
                 document.getElementById('select-condicao-pagamento').value = pedido.condicao_pagamento;
                 if (pedido.condicao_pagamento === 'Personalizado') {
@@ -1921,7 +2075,6 @@
                 document.getElementById('input-primeiro-vencimento').value = pedido.primeiro_vencimento;
             }
             
-            // Carrega itens
             const tbody = document.getElementById('tabela-itens');
             tbody.innerHTML = '<tr id="linha-adicionar"><td colspan="6" class="text-center p-2"><button onclick="adicionarLinha()" class="text-blue-600 font-bold">+ Adicionar Item</button></td></tr>';
             
@@ -1930,7 +2083,6 @@
                     const tr = document.createElement('tr'); 
                     tr.className = 'text-sm';
                     
-                    // Cria o select de produtos
                     let selectHtml = '<select class="w-full p-1 border rounded desc-item border-blue-300 focus:ring-2 focus:ring-blue-500 bg-gray-50" onchange="window.preencherProduto(this)">';
                     selectHtml += '<option value="">Selecione um produto</option>';
                     window.bancoProdutos.forEach(p => {
@@ -2067,8 +2219,8 @@
         };
 
         // Exporta funções para uso no HTML
-        window.atualizarDashboardFinanceiro = atualizarDashboardFinanceiro;
         window.formatarValorReais = formatarValorReais;
+        window.formatarDataParaExibir = formatarDataParaExibir;
     </script>
 </body>
 </html>
