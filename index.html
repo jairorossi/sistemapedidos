@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MPLEÃO - Gestão de Pedidos</title>
+    <!-- Tailwind CSS via CDN (apenas para desenvolvimento) -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     
@@ -64,7 +65,9 @@
             
             // Se for aba financeiro, atualiza os dados
             if (abaId === 'aba-financeiro') {
-                window.carregarDadosFinanceiros();
+                if (typeof window.carregarDadosFinanceiros === 'function') {
+                    window.carregarDadosFinanceiros();
+                }
             }
         }
 
@@ -96,7 +99,7 @@
         }
 
         function gerarOpcoesProdutos() {
-            if (!window.bancoProdutos) return '';
+            if (!window.bancoProdutos || window.bancoProdutos.length === 0) return '';
             return window.bancoProdutos.map(p => 
                 `<option value="${p.descricao}" data-valor="${p.valor_base}" data-forn="${p.fornecedor || ''}">${p.descricao} - ${formatarValorReais(p.valor_base)}</option>`
             ).join('');
@@ -113,8 +116,10 @@
         // ==========================================
         
         function formatarValorReais(valor) {
-            if (!valor && valor !== 0) return 'R$ 0,00';
-            return 'R$ ' + parseFloat(valor).toFixed(2).replace('.', ',');
+            if (valor === undefined || valor === null) return 'R$ 0,00';
+            const num = typeof valor === 'string' ? parseFloat(valor) : valor;
+            if (isNaN(num)) return 'R$ 0,00';
+            return 'R$ ' + num.toFixed(2).replace('.', ',');
         }
 
         function formatarTelefone(input) {
@@ -142,8 +147,12 @@
 
         function formatarDataParaExibir(dataISO) {
             if (!dataISO) return '-';
-            const data = new Date(dataISO + 'T12:00:00');
-            return data.toLocaleDateString('pt-BR');
+            try {
+                const data = new Date(dataISO + 'T12:00:00');
+                return data.toLocaleDateString('pt-BR');
+            } catch (e) {
+                return dataISO;
+            }
         }
 
         // ==========================================
@@ -196,7 +205,7 @@
             let taxaCartao = 0;
             if (formaPgto === 'Cartão de Crédito') {
                 taxaCartao = (subtotalComDesconto + frete + acrescimo) * 0.05; 
-                document.getElementById('info-taxa').innerText = `Taxa Maquininha (5%): R$ ${taxaCartao.toFixed(2).replace('.', ',')}`;
+                document.getElementById('info-taxa').innerText = `Taxa Maquininha (5%): ${formatarValorReais(taxaCartao)}`;
                 document.getElementById('info-taxa').classList.remove('hidden');
             } else {
                 document.getElementById('info-taxa').classList.add('hidden');
@@ -807,11 +816,11 @@
             </div>
         </div>
 
-        <!-- ========== ABA 5 - FINANCEIRO (FUNCIONAL) ========== -->
+        <!-- ========== ABA 5 - FINANCEIRO ========== -->
         <div id="aba-financeiro" class="hidden space-y-6">
             <h2 class="text-2xl md:text-3xl font-bold text-gray-800 border-b pb-2">💰 Módulo Financeiro</h2>
             
-            <!-- Cards de Resumo (ATUALIZADOS EM TEMPO REAL) -->
+            <!-- Cards de Resumo -->
             <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div class="bg-white p-4 rounded-lg shadow-sm financeiro-card border-l-4 border-blue-500">
                     <p class="text-xs text-gray-500 uppercase">Total a Receber</p>
@@ -858,7 +867,7 @@
                 </div>
             </div>
             
-            <!-- Tabela de Parcelas (COM BOTÃO PARA RECEBER) -->
+            <!-- Tabela de Parcelas -->
             <div class="bg-white p-4 md:p-6 rounded-lg shadow-sm">
                 <h3 class="text-lg font-semibold mb-4 text-gray-700">📋 Contas a Receber</h3>
                 <div class="overflow-x-auto">
@@ -882,7 +891,7 @@
                 </div>
             </div>
             
-            <!-- Gráfico de Previsão (BASEADO EM DADOS REAIS) -->
+            <!-- Gráfico de Previsão -->
             <div class="bg-white p-4 md:p-6 rounded-lg shadow-sm">
                 <h3 class="text-lg font-semibold mb-4 text-gray-700">📊 Previsão de Recebimento</h3>
                 <div class="grid grid-cols-1 md:grid-cols-6 gap-2 h-40 items-end" id="grafico-previsao">
@@ -963,7 +972,7 @@
         window.bancoClientes = []; 
         window.bancoProdutos = []; 
         window.bancoPedidos = [];
-        window.bancoParcelas = []; // NOVO: Array de parcelas financeiras
+        window.bancoParcelas = [];
 
         // ==========================================
         // FUNÇÕES DE CEP
@@ -1055,19 +1064,32 @@
         // ==========================================
         
         window.preencherProduto = function(select) {
+            if (!select) return;
+            
             const selectedOption = select.options[select.selectedIndex];
+            if (!selectedOption) return;
+            
             const valor = selectedOption.dataset.valor;
             const fornecedor = selectedOption.dataset.forn;
             
             const tr = select.closest('tr');
-            tr.querySelector('.valor-item').value = formatarValorReais(parseFloat(valor));
-            tr.querySelector('.forn-item').value = fornecedor || '';
+            if (!tr) return;
+            
+            const valorItem = tr.querySelector('.valor-item');
+            const fornItem = tr.querySelector('.forn-item');
+            
+            if (valorItem) {
+                valorItem.value = formatarValorReais(parseFloat(valor));
+            }
+            if (fornItem) {
+                fornItem.value = fornecedor || '';
+            }
             
             calcularTudo();
         }
 
         // ==========================================
-        // FUNÇÕES FINANCEIRAS (TOTALMENTE FUNCIONAIS)
+        // FUNÇÕES FINANCEIRAS
         // ==========================================
         
         window.atualizarParcelas = function() {
@@ -1081,20 +1103,18 @@
             }
         }
 
-        // Função para gerar parcelas a partir de um pedido
         async function gerarParcelas(pedidoId, clienteNome, valorTotal, condicao, primeiroVencimento) {
             let numeroParcelas = 1;
             
             if (condicao === 'Vista') {
                 numeroParcelas = 1;
             } else if (condicao === 'Personalizado') {
-                numeroParcelas = parseInt(document.getElementById('input-parcelas').value) || 1;
+                numeroParcelas = parseInt(document.getElementById('input-parcelas')?.value) || 1;
             } else {
                 numeroParcelas = parseInt(condicao.replace('x', '')) || 1;
             }
             
             const valorParcela = valorTotal / numeroParcelas;
-            const parcelas = [];
             
             let dataVencimento = primeiroVencimento ? new Date(primeiroVencimento + 'T12:00:00') : new Date();
             
@@ -1103,7 +1123,6 @@
                 vencimento.setMonth(vencimento.getMonth() + i);
                 
                 const parcela = {
-                    id: `${pedidoId}_${i+1}`,
                     pedidoId: pedidoId,
                     cliente: clienteNome,
                     numeroParcela: i+1,
@@ -1115,25 +1134,18 @@
                     dataCriacao: new Date().toISOString()
                 };
                 
-                parcelas.push(parcela);
-                
-                // Salva no Firebase (coleção "parcelas")
                 try {
                     await addDoc(collection(db, "parcelas"), parcela);
                 } catch (error) {
                     console.error('Erro ao salvar parcela:', error);
                 }
             }
-            
-            return parcelas;
         }
 
-        // Função para marcar parcela como paga
         window.receberParcela = async function(parcelaId) {
             if (!confirm('Confirmar recebimento desta parcela?')) return;
             
             try {
-                // Atualiza no Firebase
                 const parcelaRef = doc(db, "parcelas", parcelaId);
                 await updateDoc(parcelaRef, {
                     status: 'pago',
@@ -1142,7 +1154,6 @@
                 
                 alert('✅ Parcela recebida com sucesso!');
                 
-                // Recarrega dados financeiros
                 await carregarParcelasDoFirebase();
                 window.carregarDadosFinanceiros();
                 
@@ -1152,7 +1163,6 @@
             }
         }
 
-        // Função para carregar parcelas do Firebase
         async function carregarParcelasDoFirebase() {
             try {
                 const parcelasSnap = await getDocs(collection(db, "parcelas"));
@@ -1169,11 +1179,9 @@
             }
         }
 
-        // Função principal para carregar dados financeiros
         window.carregarDadosFinanceiros = async function() {
             await carregarParcelasDoFirebase();
             
-            // Calcula totais
             let totalReceber = 0;
             let totalVencer = 0;
             let totalAtrasado = 0;
@@ -1183,7 +1191,6 @@
             const mesAtual = hoje.getMonth();
             const anoAtual = hoje.getFullYear();
             
-            // Arrays para gráfico (próximos 6 meses)
             const valoresPorMes = [0, 0, 0, 0, 0, 0];
             
             window.bancoParcelas.forEach(parcela => {
@@ -1200,7 +1207,6 @@
                         totalVencer += valor;
                     }
                     
-                    // Para o gráfico (próximos 6 meses)
                     const diffMeses = (vencimento.getMonth() - hoje.getMonth()) + 
                                     (vencimento.getFullYear() - hoje.getFullYear()) * 12;
                     if (diffMeses >= 0 && diffMeses < 6) {
@@ -1217,18 +1223,16 @@
                 }
             });
             
-            // Atualiza cards
             document.getElementById('total-a-receber').innerText = formatarValorReais(totalReceber);
             document.getElementById('total-a-vencer').innerText = formatarValorReais(totalVencer);
             document.getElementById('total-atrasado').innerText = formatarValorReais(totalAtrasado);
             document.getElementById('total-recebido-mes').innerText = formatarValorReais(totalRecebidoMes);
             
-            // Atualiza gráfico
             const maxValor = Math.max(...valoresPorMes, 1);
-            const meses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun'];
+            const meses = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun'];
             
             for (let i = 0; i < 6; i++) {
-                const barra = document.getElementById(`barra-${meses[i].toLowerCase()}`);
+                const barra = document.getElementById(`barra-${meses[i]}`);
                 if (barra) {
                     const altura = valoresPorMes[i] > 0 ? (valoresPorMes[i] / maxValor) * 140 : 0;
                     barra.style.height = altura + 'px';
@@ -1236,33 +1240,37 @@
                 }
             }
             
-            // Atualiza select de clientes
             const selectCliente = document.getElementById('filtro-cliente-financeiro');
-            selectCliente.innerHTML = '<option value="todos">Todos os clientes</option>';
-            window.bancoClientes.forEach(c => {
-                selectCliente.innerHTML += `<option value="${c.nome}">${c.nome}</option>`;
-            });
+            if (selectCliente) {
+                selectCliente.innerHTML = '<option value="todos">Todos os clientes</option>';
+                window.bancoClientes.forEach(c => {
+                    selectCliente.innerHTML += `<option value="${c.nome}">${c.nome}</option>`;
+                });
+            }
             
-            // Renderiza tabela
             window.filtrarFinanceiro();
         }
 
-        // Função para filtrar parcelas
         window.filtrarFinanceiro = function() {
-            const statusFiltro = document.getElementById('filtro-status-financeiro').value;
-            const clienteFiltro = document.getElementById('filtro-cliente-financeiro').value;
+            const statusFiltro = document.getElementById('filtro-status-financeiro')?.value || 'todos';
+            const clienteFiltro = document.getElementById('filtro-cliente-financeiro')?.value || 'todos';
             const busca = document.getElementById('busca-financeiro')?.value.toLowerCase() || '';
             
             const hoje = new Date();
             
             let parcelasFiltradas = window.bancoParcelas.filter(p => {
-                // Filtro por status
-                if (statusFiltro !== 'todos' && p.status !== statusFiltro) return false;
+                if (statusFiltro !== 'todos') {
+                    if (statusFiltro === 'atrasado') {
+                        const vencimento = new Date(p.vencimento + 'T12:00:00');
+                        const dias = Math.ceil((vencimento - hoje) / (1000 * 60 * 60 * 24));
+                        if (p.status !== 'pendente' || dias >= 0) return false;
+                    } else if (p.status !== statusFiltro) {
+                        return false;
+                    }
+                }
                 
-                // Filtro por cliente
                 if (clienteFiltro !== 'todos' && p.cliente !== clienteFiltro) return false;
                 
-                // Filtro por busca (cliente ou pedido)
                 if (busca) {
                     const clienteMatch = p.cliente?.toLowerCase().includes(busca);
                     const pedidoMatch = p.pedidoId?.toLowerCase().includes(busca);
@@ -1272,7 +1280,6 @@
                 return true;
             });
             
-            // Ordena por vencimento (mais antigos primeiro)
             parcelasFiltradas.sort((a, b) => new Date(a.vencimento) - new Date(b.vencimento));
             
             let html = '';
@@ -1288,33 +1295,38 @@
                     let statusText = '';
                     let diasTexto = '';
                     let diasClass = '';
+                    let linhaClass = '';
                     
                     if (p.status === 'pago') {
                         statusClass = 'badge-pago';
                         statusText = 'Pago';
                         diasTexto = 'Pago';
                         diasClass = 'text-green-600';
+                        linhaClass = 'status-pago';
                     } else if (diasAteVencimento < 0) {
                         statusClass = 'badge-atrasado';
                         statusText = 'Atrasado';
                         diasTexto = `${Math.abs(diasAteVencimento)} dias atrasado`;
                         diasClass = 'text-red-600 font-bold';
+                        linhaClass = 'status-atrasado';
                     } else if (diasAteVencimento === 0) {
                         statusClass = 'badge-pendente';
                         statusText = 'Vence hoje';
                         diasTexto = 'Vence hoje';
                         diasClass = 'text-orange-600 font-bold';
+                        linhaClass = 'status-pendente';
                     } else {
                         statusClass = 'badge-pendente';
                         statusText = 'A Receber';
                         diasTexto = `Faltam ${diasAteVencimento} dias`;
                         diasClass = 'text-yellow-600';
+                        linhaClass = 'status-pendente';
                     }
                     
                     const parcelaTexto = p.totalParcelas > 1 ? `${p.numeroParcela}/${p.totalParcelas}` : 'Única';
                     
                     html += `
-                    <tr class="border-b hover:bg-gray-50 ${p.status === 'pago' ? 'status-pago' : (diasAteVencimento < 0 ? 'status-atrasado' : 'status-pendente')}">
+                    <tr class="border-b hover:bg-gray-50 ${linhaClass}">
                         <td class="p-2 border">${p.cliente}</td>
                         <td class="p-2 border">#${p.pedidoId.substring(0,6)}</td>
                         <td class="p-2 border">${parcelaTexto}</td>
@@ -1677,7 +1689,7 @@
         }
 
         // ==========================================
-        // FUNÇÃO PARA NOVO PEDIDO (RESET COMPLETO)
+        // FUNÇÃO PARA NOVO PEDIDO
         // ==========================================
         window.novoPedido = function() {
             console.log('➕ Iniciando novo pedido - reset completo');
@@ -1776,6 +1788,8 @@
                 </tr>
             `;
             
+            calcularTudo();
+            
             setTimeout(() => {
                 alert('✅ Novo pedido iniciado! Comece selecionando um cliente.');
             }, 100);
@@ -1846,8 +1860,13 @@
             
             document.querySelectorAll('#tabela-itens tr:not(#linha-adicionar)').forEach(tr => {
                 const select = tr.querySelector('.desc-item');
-                const desc = select ? select.options[select.selectedIndex]?.text.split(' - ')[0] : '';
-                if(desc) {
+                if (!select) return;
+                
+                const selectedOption = select.options[select.selectedIndex];
+                if (!selectedOption) return;
+                
+                const desc = selectedOption.text.split(' - ')[0];
+                if (desc && desc !== 'Selecione um produto') {
                     dados.itens.push({ 
                         quantidade: tr.querySelector('.qtd-item').value, 
                         descricao: desc, 
@@ -1867,26 +1886,23 @@
             try {
                 let pedidoId = id;
                 
-                if(id) {
-                    await updateDoc(doc(db,"pedidos",id), dados);
-                } else { 
-                    dados.numero_sequencial = await obterProximoNumeroPedido(); 
-                    dados.data_criacao = serverTimestamp(); 
-                    const docRef = await addDoc(collection(db,"pedidos"), dados);
+                if (id) {
+                    await updateDoc(doc(db, "pedidos", id), dados);
+                } else {
+                    dados.numero_sequencial = await obterProximoNumeroPedido();
+                    dados.data_criacao = serverTimestamp();
+                    const docRef = await addDoc(collection(db, "pedidos"), dados);
                     pedidoId = docRef.id;
                     document.getElementById('pedido-id-atual').value = docRef.id;
                     document.getElementById('btn-cancelar-pedido').classList.remove('hidden');
                     atualizarTextoBotaoSalvar('editando');
                 }
                 
-                // ==========================================
-                // GERA AS PARCELAS FINANCEIRAS
-                // ==========================================
                 await gerarParcelas(
-                    pedidoId, 
-                    nomeCliente, 
-                    dados.valor_total, 
-                    condicaoPagamento, 
+                    pedidoId,
+                    nomeCliente,
+                    dados.valor_total,
+                    condicaoPagamento,
                     primeiroVencimento
                 );
                 
@@ -2015,14 +2031,22 @@
         // ==========================================
         
         window.abrirPedidoParaEdicao = function(id) {
+            console.log('🔍 Abrindo pedido:', id);
+            
             const pedido = window.bancoPedidos.find(x => x.id === id);
-            if (!pedido) return alert('Pedido não encontrado!');
+            if (!pedido) {
+                alert('Pedido não encontrado!');
+                return;
+            }
 
             const cliente = window.bancoClientes.find(c => c.id === pedido.cliente_id);
             
+            // Preenche dados básicos
             document.getElementById('pedido-id-atual').value = pedido.id;
             document.getElementById('input-cliente').value = pedido.cliente_nome || '';
+            document.getElementById('pdf-n-display').innerText = '#' + (pedido.numero_sequencial?.toString().padStart(3,'0') || '???');
             
+            // Mostra dados do cliente
             if (cliente) {
                 document.getElementById('cliente-telefone').innerText = cliente.telefone || '-';
                 document.getElementById('cliente-documento').innerText = cliente.documento || '-';
@@ -2032,18 +2056,17 @@
                 document.getElementById('input-endereco').value = cliente.endereco || '';
             }
             
-            document.getElementById('pdf-n-display').innerText = '#' + (pedido.numero_sequencial?.toString().padStart(3,'0') || '???');
-            
             document.getElementById('btn-cancelar-pedido').classList.remove('hidden');
-            
             atualizarTextoBotaoSalvar('editando');
             
+            // Status
             if (pedido.status) {
                 const selectStatus = document.getElementById('select-status');
                 if (selectStatus) selectStatus.value = pedido.status;
                 window.selecionarStatus(pedido.status);
             }
             
+            // Frete
             if (pedido.frete) {
                 document.getElementById('input-km').value = pedido.frete.distancia || '0';
                 document.getElementById('input-litro').value = pedido.frete.preco_combustivel || '4.20';
@@ -2060,10 +2083,12 @@
                 }
             }
             
+            // Descontos e acréscimos
             if (pedido.desconto) document.getElementById('input-desconto').value = pedido.desconto;
             if (pedido.acrescimo) document.getElementById('input-acrescimo').value = pedido.acrescimo.toFixed(2).replace('.', ',');
             if (pedido.motivo_acrescimo) document.getElementById('input-motivo-acrescimo').value = pedido.motivo_acrescimo;
             
+            // Condições de pagamento
             if (pedido.condicao_pagamento) {
                 document.getElementById('select-condicao-pagamento').value = pedido.condicao_pagamento;
                 if (pedido.condicao_pagamento === 'Personalizado') {
@@ -2075,6 +2100,7 @@
                 document.getElementById('input-primeiro-vencimento').value = pedido.primeiro_vencimento;
             }
             
+            // Itens
             const tbody = document.getElementById('tabela-itens');
             tbody.innerHTML = '<tr id="linha-adicionar"><td colspan="6" class="text-center p-2"><button onclick="adicionarLinha()" class="text-blue-600 font-bold">+ Adicionar Item</button></td></tr>';
             
