@@ -206,9 +206,12 @@ function gerarPDF() {
             <button id="btn-clientes" onclick="mostrarAba('aba-clientes')" class="text-sm md:text-base text-left p-3 rounded hover:bg-gray-600 transition">👥 Clientes</button>
             <button id="btn-produtos" onclick="mostrarAba('aba-produtos')" class="text-sm md:text-base text-left p-3 rounded hover:bg-gray-600 transition">🏷️ Produtos</button>
             <button id="btn-logistica" onclick="mostrarAba('aba-logistica')" class="text-sm md:text-base text-left p-3 rounded hover:bg-gray-600 transition">🚚 Painel de Pedidos</button>
-            <button onclick="window.fazerLogout()" class="mt-auto text-sm text-left p-3 text-red-400 hover:bg-gray-800 rounded transition font-bold">🚪 Encerrar Sessão</button>
-		</nav>
-		
+        </nav>
+		<nav class="flex flex-row md:flex-col p-4 gap-2 overflow-x-auto whitespace-nowrap">
+    <button onclick="window.fazerLogout()" class="mt-auto text-sm text-left p-3 text-red-400 hover:bg-gray-800 rounded transition">
+        🚪 Encerrar Sessão
+    </button>
+</nav>
     </aside>
 
     <main class="flex-1 overflow-y-auto p-4 md:p-8">
@@ -504,23 +507,53 @@ function gerarPDF() {
         });
 
         // --- HELPERS ---
-        window.abrirPedidoParaEdicao = (id) => {
-            const p = window.bancoPedidos.find(x => x.id === id);
+        
+		
+window.abrirPedidoParaEdicao = function(id) {
+            const ped = window.bancoPedidos.find(p => p.id === id);
+            if(!ped) return;
+
             document.getElementById('pedido-id-atual').value = id;
-            document.getElementById('input-cliente').value = p.cliente_nome;
-            document.getElementById('input-endereco').value = p.cliente_endereco;
-            document.getElementById('select-status').value = p.status;
-            document.getElementById('pdf-n-display').innerText = '#' + (p.numero_sequencial?.toString().padStart(3,'0') || '???');
-            document.getElementById('btn-cancelar-pedido').classList.remove('hidden');
+            document.getElementById('input-cliente').value = ped.cliente_nome;
+            document.getElementById('input-endereco').value = ped.cliente_endereco;
+            document.getElementById('select-status').value = ped.status;
+            document.getElementById('pdf-n-display').innerText = '#' + (ped.numero_sequencial?.toString().padStart(3,'0') || '???');
+            
             const tbody = document.getElementById('tabela-itens');
-            tbody.innerHTML = '<tr id="linha-adicionar"><td colspan="6" class="text-center p-2"><button onclick="adicionarLinha()" class="text-blue-600 font-bold">+ Adicionar Item</button></td></tr>';
-            p.itens.forEach(i => {
+            tbody.innerHTML = '<tr id="linha-adicionar"><td colspan="6" class="text-center p-2"><button id="btn-add-item-tabela" onclick="adicionarLinha()" class="text-blue-600 font-bold">+ Adicionar Item</button></td></tr>';
+            
+            ped.itens.forEach(i => {
                 const tr = document.createElement('tr'); tr.className = 'text-sm';
-                tr.innerHTML = `<td class="p-2 border"><input type="number" value="${i.quantidade}" class="w-16 p-1 border rounded qtd-item" onchange="calcularTudo()"></td><td class="p-2 border"><input type="text" list="lista-sugestao-produtos" value="${i.descricao}" class="w-full p-1 border rounded desc-item" onchange="window.preencherProduto(this)"></td><td class="p-2 border"><input type="text" value="${i.fornecedor || ''}" class="w-full p-1 border rounded forn-item"></td><td class="p-2 border"><input type="number" value="${i.valor_unitario}" class="w-full p-1 border rounded valor-item" onchange="calcularTudo()"></td><td class="p-2 border total-linha">R$ 0,00</td><td class="p-2 border text-center"><button onclick="this.closest('tr').remove(); calcularTudo();" class="text-red-500 font-bold">X</button></td>`;
+                tr.innerHTML = `<td class="p-2 border"><input type="number" value="${i.quantidade}" class="w-16 p-1 border rounded qtd-item" onchange="calcularTudo()"></td><td class="p-2 border"><input type="text" list="lista-sugestao-produtos" value="${i.descricao}" class="w-full p-1 border rounded desc-item" onchange="window.preencherProduto(this)"></td><td class="p-2 border"><input type="text" value="${i.fornecedor || ''}" class="w-full p-1 border rounded forn-item"></td><td class="p-2 border"><input type="number" value="${i.valor_unitario}" class="w-full p-1 border rounded valor-item" onchange="calcularTudo()"></td><td class="p-2 border total-linha">R$ 0,00</td><td class="p-2 border text-center"><button onclick="this.closest('tr').remove(); calcularTudo();" class="btn-remover-item text-red-500 font-bold">X</button></td>`;
                 tbody.insertBefore(tr, document.getElementById('linha-adicionar'));
             });
-            mostrarAba('aba-cadastro'); calcularTudo();
+
+            // --- LÓGICA DE TRAVA ---
+            const estaEntregue = ped.status === 'Entregue';
+            const btnSalvar = document.getElementById('btn-salvar');
+            const avisoTrava = document.getElementById('titulo-aba-pedido');
+
+            if (estaEntregue) {
+                btnSalvar.classList.add('hidden'); // Esconde o botão salvar
+                avisoTrava.innerHTML = `⚠️ Pedido #${ped.numero_sequencial} (ENTREGUE - Somente Leitura)`;
+                avisoTrava.classList.add('text-red-600');
+                // Desabilita todos os inputs para não deixar digitar
+                document.querySelectorAll('#aba-cadastro input, #aba-cadastro select').forEach(el => el.disabled = true);
+                document.getElementById('btn-add-item-tabela').classList.add('hidden');
+            } else {
+                btnSalvar.classList.remove('hidden'); // Mostra o botão salvar
+                avisoTrava.innerText = 'Novo Pedido';
+                avisoTrava.classList.remove('text-red-600');
+                // Reabilita os campos
+                document.querySelectorAll('#aba-cadastro input, #aba-cadastro select').forEach(el => el.disabled = false);
+                document.getElementById('btn-add-item-tabela').classList.remove('hidden');
+            }
+
+            mostrarAba('aba-cadastro'); 
+            calcularTudo();
         };
+
+
 
         window.editarCliente = (id,n,t,d,e) => { document.getElementById('cli-id').value=id; document.getElementById('cli-nome').value=n; document.getElementById('cli-endereco').value=e; mostrarAba('aba-clientes'); };
         window.editarProduto = (id,d,f,v) => { document.getElementById('prod-id').value=id; document.getElementById('prod-desc').value=d; document.getElementById('prod-valor').value=v; mostrarAba('aba-produtos'); };

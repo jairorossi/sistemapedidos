@@ -102,7 +102,7 @@ function gerarPDF() {
 
     // 1. Coleta de dados
     const idAtual = document.getElementById('pedido-id-atual').value;
-    const numeroExibicao = document.getElementById('pdf-n-display').innerText || 'NOVO';
+    const numeroPedido = document.getElementById('pdf-n-display').innerText || 'NOVO';
     const cliente = document.getElementById('input-cliente').value || 'Não informado';
     const endereco = document.getElementById('input-endereco').value || 'Não informado';
     const previsao = document.getElementById('input-previsao').value || 'A combinar';
@@ -135,7 +135,7 @@ function gerarPDF() {
                     <p style="margin: 0; font-size: 12px; color: #666;">Serralheria & Vidraçaria</p>
                 </div>
                 <div style="text-align: right;">
-                    <h2 style="margin: 0; font-size: 18px;">PEDIDO ${numeroExibicao}</h2>
+                    <h2 style="margin: 0; font-size: 18px;">PEDIDO ${numeroPedido}</h2>
                     <p style="margin: 0; font-size: 12px;">Data: ${dataAtual}</p>
                 </div>
             </div>
@@ -182,6 +182,7 @@ function gerarPDF() {
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
     };
 
+    // Gera a partir da string de HTML diretamente
     html2pdf().set(opcoes).from(conteudoCompleto).save().then(() => {
         btn.innerHTML = textoOriginal;
     }).catch(err => {
@@ -189,6 +190,26 @@ function gerarPDF() {
         btn.innerHTML = 'Erro ao gerar';
     });
 }
+
+        window.limparTelaPedido = function() {
+            document.getElementById('pedido-id-atual').value = '';
+            document.getElementById('input-cliente').value = '';
+            document.getElementById('input-endereco').value = '';
+            document.getElementById('select-status').value = 'Orçamento';
+            document.getElementById('pdf-n-display').innerText = '#000';
+            document.getElementById('tabela-itens').innerHTML = '<tr class="text-sm" id="linha-adicionar"><td colspan="6" class="p-2 text-center"><button onclick="adicionarLinha()" class="text-blue-600 font-bold">+ Adicionar Novo Item</button></td></tr>';
+            adicionarLinha();
+
+            // Destrava campos para novo pedido
+            document.querySelectorAll('#aba-cadastro input, #aba-cadastro select').forEach(el => el.disabled = false);
+            document.getElementById('btn-salvar').classList.remove('hidden');
+            const tit = document.getElementById('titulo-aba-pedido');
+            tit.innerText = 'Novo Pedido';
+            tit.classList.remove('text-red-600', 'text-orange-500');
+
+            calcularTudo();
+            mostrarAba('aba-cadastro');
+        }
     </script>
 </head>
 <body class="bg-gray-100 flex flex-col md:flex-row h-screen overflow-hidden">
@@ -206,9 +227,12 @@ function gerarPDF() {
             <button id="btn-clientes" onclick="mostrarAba('aba-clientes')" class="text-sm md:text-base text-left p-3 rounded hover:bg-gray-600 transition">👥 Clientes</button>
             <button id="btn-produtos" onclick="mostrarAba('aba-produtos')" class="text-sm md:text-base text-left p-3 rounded hover:bg-gray-600 transition">🏷️ Produtos</button>
             <button id="btn-logistica" onclick="mostrarAba('aba-logistica')" class="text-sm md:text-base text-left p-3 rounded hover:bg-gray-600 transition">🚚 Painel de Pedidos</button>
-            <button onclick="window.fazerLogout()" class="mt-auto text-sm text-left p-3 text-red-400 hover:bg-gray-800 rounded transition font-bold">🚪 Encerrar Sessão</button>
-		</nav>
-		
+        </nav>
+		<nav class="flex flex-row md:flex-col p-4 gap-2 overflow-x-auto whitespace-nowrap">
+    <button onclick="window.fazerLogout()" class="mt-auto text-sm text-left p-3 text-red-400 hover:bg-gray-800 rounded transition font-bold">
+        🚪 Encerrar Sessão
+    </button>
+</nav>
     </aside>
 
     <main class="flex-1 overflow-y-auto p-4 md:p-8">
@@ -319,17 +343,14 @@ function gerarPDF() {
                 <h3 class="text-lg font-semibold mb-4 text-gray-700" id="titulo-form-cliente">Novo Cliente</h3>
                 <div class="space-y-4 max-w-2xl">
                     <input type="hidden" id="cli-id" value="">
-                    <div><label class="text-sm text-gray-600">Nome Completo / Razão Social</label><input type="text" id="cli-nome" class="w-full p-2 border rounded bg-gray-50"></div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4"><div><label class="text-sm text-gray-600">Telefone / WhatsApp</label><input type="text" id="cli-telefone" class="w-full p-2 border rounded bg-gray-50"></div><div><label class="text-sm text-gray-600">CPF / CNPJ</label><input type="text" id="cli-documento" class="w-full p-2 border rounded bg-gray-50"></div></div>
+                    <div><label class="text-sm text-gray-600">Nome Completo</label><input type="text" id="cli-nome" class="w-full p-2 border rounded bg-gray-50"></div>
                     <div><label class="text-sm text-gray-600">Endereço Completo</label><input type="text" id="cli-endereco" class="w-full p-2 border rounded bg-gray-50"></div>
                     <div class="pt-4 flex gap-2 justify-end">
-                        <button id="btn-cancelar-cliente" class="hidden bg-gray-500 text-white font-bold py-2 px-4 rounded hover:bg-gray-600 transition" onclick="window.cancelarEdicaoCliente()">Cancelar</button>
                         <button id="btn-salvar-cliente" class="bg-blue-600 text-white font-bold py-2 px-6 rounded hover:bg-blue-700 transition">💾 Salvar Cliente</button>
                     </div>
                 </div>
                 <div class="mt-8 border-t pt-6">
-                    <div class="flex justify-between items-center mb-4"><h3 class="text-lg font-semibold text-gray-700">Clientes Cadastrados</h3><input type="text" placeholder="🔍 Buscar cliente..." class="p-2 border rounded border-gray-300 w-64 text-sm outline-none focus:border-blue-500" onkeyup="window.filtrarClientes(this.value)"></div>
-                    <div class="overflow-x-auto"><table class="w-full text-left border-collapse"><thead><tr class="bg-gray-100 text-gray-600 text-sm"><th class="p-2 border">Nome</th><th class="p-2 border">Endereço</th><th class="p-2 border">Ações</th></tr></thead><tbody id="lista-clientes" class="text-sm"><tr><td colspan="3" class="p-4 text-center text-gray-500">Carregando...</td></tr></tbody></table></div>
+                    <table class="w-full text-left border-collapse"><tbody id="lista-clientes" class="text-sm"><tr><td colspan="3" class="p-4 text-center">Carregando...</td></tr></tbody></table>
                 </div>
             </div>
         </div>
@@ -337,19 +358,17 @@ function gerarPDF() {
         <div id="aba-produtos" class="hidden space-y-6">
             <h2 class="text-2xl md:text-3xl font-bold text-gray-800 border-b pb-2">Gestão de Produtos</h2>
             <div class="bg-white p-4 md:p-6 rounded-lg shadow-sm">
-                <h3 class="text-lg font-semibold mb-4 text-gray-700" id="titulo-form-produto">Novo Produto / Material</h3>
+                <h3 class="text-lg font-semibold mb-4 text-gray-700" id="titulo-form-produto">Novo Produto</h3>
                 <div class="space-y-4 max-w-2xl">
                     <input type="hidden" id="prod-id" value="">
-                    <div><label class="text-sm text-gray-600">Descrição do Produto</label><input type="text" id="prod-desc" class="w-full p-2 border rounded bg-gray-50"></div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4"><div><label class="text-sm text-gray-600">Fornecedor Principal</label><input type="text" id="prod-forn" class="w-full p-2 border rounded bg-gray-50"></div><div><label class="text-sm text-gray-600">Valor Unitário Base (R$)</label><input type="number" id="prod-valor" step="0.01" class="w-full p-2 border rounded bg-gray-50"></div></div>
+                    <div><label class="text-sm text-gray-600">Descrição</label><input type="text" id="prod-desc" class="w-full p-2 border rounded bg-gray-50"></div>
+                    <div><label class="text-sm text-gray-600">Valor Base</label><input type="number" id="prod-valor" class="w-full p-2 border rounded bg-gray-50"></div>
                     <div class="pt-4 flex gap-2 justify-end">
-                        <button id="btn-cancelar-produto" class="hidden bg-gray-500 text-white font-bold py-2 px-4 rounded hover:bg-gray-600 transition" onclick="window.cancelarEdicaoProduto()">Cancelar</button>
                         <button id="btn-salvar-produto" class="bg-blue-600 text-white font-bold py-2 px-6 rounded hover:bg-blue-700 transition">💾 Salvar Produto</button>
                     </div>
                 </div>
                 <div class="mt-8 border-t pt-6">
-                    <div class="flex justify-between items-center mb-4"><h3 class="text-lg font-semibold text-gray-700">Produtos Cadastrados</h3><input type="text" placeholder="🔍 Buscar produto..." class="p-2 border rounded border-gray-300 w-64 text-sm outline-none focus:border-blue-500" onkeyup="window.filtrarProdutos(this.value)"></div>
-                    <div class="overflow-x-auto"><table class="w-full text-left border-collapse"><thead><tr class="bg-gray-100 text-gray-600 text-sm"><th class="p-2 border">Descrição</th><th class="p-2 border">Valor</th><th class="p-2 border">Ações</th></tr></thead><tbody id="lista-produtos" class="text-sm"><tr><td colspan="3" class="p-4 text-center text-gray-500">Carregando...</td></tr></tbody></table></div>
+                    <table class="w-full text-left border-collapse"><tbody id="lista-produtos" class="text-sm"><tr><td colspan="3" class="p-4 text-center">Carregando...</td></tr></tbody></table>
                 </div>
             </div>
         </div>
@@ -357,30 +376,9 @@ function gerarPDF() {
         <div id="aba-logistica" class="hidden space-y-6">
             <h2 class="text-2xl md:text-3xl font-bold text-gray-800 border-b pb-2">Painel de Pedidos</h2>
             <div class="bg-white p-4 md:p-6 rounded-lg shadow-sm">
-                <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4 border-b pb-4">
-                    <div>
-                        <h3 class="text-lg font-semibold text-gray-700">Consulta Geral</h3>
-                        <p class="text-xs text-gray-500">Busque qualquer pedido para visualizar ou imprimir.</p>
-                    </div>
-                    <input type="text" placeholder="🔍 Buscar por cliente ou endereço..." class="p-2 border rounded border-gray-300 w-full md:w-80 text-sm outline-none focus:border-blue-500 shadow-sm" onkeyup="window.filtrarPedidos(this.value)">
-                </div>
-
+                <input type="text" placeholder="🔍 Buscar cliente..." class="p-2 border rounded mb-4 w-full" onkeyup="window.filtrarPedidos(this.value)">
                 <div class="overflow-x-auto">
-                    <table class="w-full text-left border-collapse min-w-[700px]">
-                        <thead>
-                            <tr class="bg-gray-100 text-gray-600 text-sm border-b-2">
-                                <th class="p-2 border-r border-gray-200">Cód.</th>
-                                <th class="p-2 border-r border-gray-200">Data</th>
-                                <th class="p-2 border-r border-gray-200">Cliente</th>
-                                <th class="p-2 border-r border-gray-200">Status</th>
-                                <th class="p-2 border-r border-gray-200">Valor Total</th>
-                                <th class="p-2">Ações</th>
-                            </tr>
-                        </thead>
-                        <tbody id="tabela-pedidos">
-                            <tr class="text-sm"><td class="p-4 border text-center text-gray-500 bg-gray-50" colspan="6">Carregando pedidos...</td></tr>
-                        </tbody>
-                    </table>
+                    <table class="w-full text-left border-collapse"><tbody id="tabela-pedidos"></tbody></table>
                 </div>
             </div>
         </div>
@@ -389,7 +387,6 @@ function gerarPDF() {
 <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getFirestore, collection, addDoc, serverTimestamp, getDocs, doc, updateDoc, deleteDoc, runTransaction } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-        // Importação da Autenticação para a trava de segurança
         import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
         const firebaseConfig = {
@@ -405,23 +402,22 @@ function gerarPDF() {
         const db = getFirestore(app);
         const auth = getAuth(app);
 
-        // --- TRAVA DE SEGURANÇA (SÓ CARREGA SE ESTIVER LOGADO) ---
+        // --- SEGURANÇA: TRAVA DE LOGIN ---
         onAuthStateChanged(auth, (user) => {
             if (!user) {
-                window.location.href = "login.html"; // Expulsa se não estiver logado
+                window.location.href = "login.html";
             } else {
-                carregarMemoriaBanco(); // Só carrega os dados se o login for real
+                carregarMemoriaBanco();
             }
         });
 
-        // Função de Logout para o botão Sair
         window.fazerLogout = function() {
             signOut(auth).then(() => { window.location.href = "login.html"; });
         }
 
         window.bancoClientes = []; window.bancoProdutos = []; window.bancoPedidos = [];
 
-        // --- CONTADOR SEQUENCIAL ---
+        // --- NÚMERO SEQUENCIAL ---
         async function obterProximoNumeroPedido() {
             const ref = doc(db, "configuracoes", "contador_pedidos");
             return await runTransaction(db, async (t) => {
@@ -431,7 +427,6 @@ function gerarPDF() {
             });
         }
 
-        // --- CARREGAMENTO GERAL ---
         async function carregarMemoriaBanco() {
             try {
                 const cliSnap = await getDocs(collection(db, "clientes"));
@@ -442,7 +437,7 @@ function gerarPDF() {
                 window.bancoPedidos = pedSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 window.bancoPedidos.sort((a,b) => (b.data_criacao?.seconds || 0) - (a.data_criacao?.seconds || 0));
                 renderizarTudo();
-            } catch (e) { console.error("Erro ao carregar:", e); }
+            } catch (e) { console.error(e); }
         }
 
         function renderizarTudo() {
@@ -486,7 +481,7 @@ function gerarPDF() {
             window.location.reload();
         });
 
-        // --- CLIENTES E PRODUTOS (SEM RELOAD) ---
+        // --- SALVAR SEM RELOAD ---
         document.getElementById('btn-salvar-cliente').addEventListener('click', async () => {
             const id = document.getElementById('cli-id').value;
             const d = { nome: document.getElementById('cli-nome').value, endereco: document.getElementById('cli-endereco').value };
@@ -503,22 +498,48 @@ function gerarPDF() {
             alert("Produto Salvo!"); carregarMemoriaBanco();
         });
 
-        // --- HELPERS ---
-        window.abrirPedidoParaEdicao = (id) => {
-            const p = window.bancoPedidos.find(x => x.id === id);
+        // --- ABRIR COM TRAVA DE STATUS ---
+        window.abrirPedidoParaEdicao = function(id) {
+            const p = window.bancoPedidos.find(p => p.id === id);
+            if(!p) return;
+
             document.getElementById('pedido-id-atual').value = id;
             document.getElementById('input-cliente').value = p.cliente_nome;
             document.getElementById('input-endereco').value = p.cliente_endereco;
             document.getElementById('select-status').value = p.status;
             document.getElementById('pdf-n-display').innerText = '#' + (p.numero_sequencial?.toString().padStart(3,'0') || '???');
-            document.getElementById('btn-cancelar-pedido').classList.remove('hidden');
+            
             const tbody = document.getElementById('tabela-itens');
-            tbody.innerHTML = '<tr id="linha-adicionar"><td colspan="6" class="text-center p-2"><button onclick="adicionarLinha()" class="text-blue-600 font-bold">+ Adicionar Item</button></td></tr>';
+            tbody.innerHTML = '<tr id="linha-adicionar"><td colspan="6" class="p-2 text-center"><button id="btn-add-item-tabela" onclick="adicionarLinha()" class="text-blue-600 font-bold">+ Adicionar Item</button></td></tr>';
+            
             p.itens.forEach(i => {
                 const tr = document.createElement('tr'); tr.className = 'text-sm';
                 tr.innerHTML = `<td class="p-2 border"><input type="number" value="${i.quantidade}" class="w-16 p-1 border rounded qtd-item" onchange="calcularTudo()"></td><td class="p-2 border"><input type="text" list="lista-sugestao-produtos" value="${i.descricao}" class="w-full p-1 border rounded desc-item" onchange="window.preencherProduto(this)"></td><td class="p-2 border"><input type="text" value="${i.fornecedor || ''}" class="w-full p-1 border rounded forn-item"></td><td class="p-2 border"><input type="number" value="${i.valor_unitario}" class="w-full p-1 border rounded valor-item" onchange="calcularTudo()"></td><td class="p-2 border total-linha">R$ 0,00</td><td class="p-2 border text-center"><button onclick="this.closest('tr').remove(); calcularTudo();" class="text-red-500 font-bold">X</button></td>`;
                 tbody.insertBefore(tr, document.getElementById('linha-adicionar'));
             });
+
+            // LÓGICA DE TRAVA E AVISOS
+            const inputs = document.querySelectorAll('#aba-cadastro input, #aba-cadastro select');
+            const btnS = document.getElementById('btn-salvar');
+            const tit = document.getElementById('titulo-aba-pedido');
+
+            if (p.status === 'Entregue' || p.status === 'Em Entrega') {
+                inputs.forEach(el => { if(el.id !== 'select-status') el.disabled = true; });
+                btnS.classList.add('hidden');
+                tit.innerHTML = `⚠️ #${p.numero_sequencial} - ${p.status.toUpperCase()} (BLOQUEADO)`;
+                tit.classList.add('text-red-600');
+                alert("Atenção: Este pedido já saiu ou foi entregue. Edição bloqueada por segurança.");
+            } else if (p.status === 'Produção') {
+                inputs.forEach(el => el.disabled = false);
+                btnS.classList.remove('hidden');
+                tit.innerHTML = `🛠️ EM PRODUÇÃO (CUIDADO AO EDITAR)`;
+                tit.classList.add('text-orange-500');
+            } else {
+                inputs.forEach(el => el.disabled = false);
+                btnS.classList.remove('hidden');
+                tit.innerText = 'Editar Orçamento';
+                tit.classList.remove('text-red-600', 'text-orange-500');
+            }
             mostrarAba('aba-cadastro'); calcularTudo();
         };
 
@@ -542,6 +563,5 @@ function gerarPDF() {
                 </tr>`).join('');
         }
     </script>
-
 </body>
 </html>
