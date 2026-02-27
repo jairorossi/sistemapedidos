@@ -221,24 +221,26 @@
                                 <th class="p-2 border">Total</th>
                             </tr>
                         </thead>
-                        <tbody id="tabela-itens">
-                            <tr class="text-sm">
-                                <td class="p-2 border"><input type="number" value="2" min="1" class="w-16 p-1 border rounded qtd-item" onchange="calcularTudo()" onkeyup="calcularTudo()"></td>
-                                <td class="p-2 border"><input type="text" value="Veneziana 6f quadricula" class="w-full p-1 border rounded desc-item"></td>
-                                <td class="p-2 border">
-                                    <select class="w-full p-1 border rounded forn-item">
-                                        <option selected>Alumínios Brás</option>
-                                    </select>
-                                </td>
-                                <td class="p-2 border"><input type="number" value="551.25" step="0.01" class="w-24 p-1 border rounded valor-item" onchange="calcularTudo()" onkeyup="calcularTudo()"></td>
-                                <td class="p-2 border font-semibold total-linha">R$ 0,00</td>
-                            </tr>
-                            <tr class="text-sm" id="linha-adicionar">
-                                <td class="p-2 border bg-gray-50 text-center" colspan="5">
-                                    <button onclick="adicionarLinha()" class="text-blue-600 font-semibold hover:underline w-full py-2">+ Adicionar Novo Item</button>
-                                </td>
-                            </tr>
-                        </tbody>
+<tbody id="tabela-itens">
+    <tr class="text-sm">
+        <td class="p-2 border"><input type="number" value="1" min="1" class="w-16 p-1 border rounded qtd-item" onchange="calcularTudo()" onkeyup="calcularTudo()"></td>
+        <td class="p-2 border"><input type="text" placeholder="Nome do produto" class="w-full p-1 border rounded desc-item"></td>
+        <td class="p-2 border">
+            <select class="w-full p-1 border rounded forn-item">
+                <option selected>Selecione...</option>
+                <option>Alumínios Brás</option>
+                <option>Vidraçaria Central</option>
+            </select>
+        </td>
+        <td class="p-2 border"><input type="number" value="0.00" step="0.01" class="w-24 p-1 border rounded valor-item" onchange="calcularTudo()" onkeyup="calcularTudo()"></td>
+        <td class="p-2 border font-semibold total-linha">R$ 0,00</td>
+    </tr>
+    <tr class="text-sm" id="linha-adicionar">
+        <td class="p-2 border bg-gray-50 text-center" colspan="5">
+            <button onclick="adicionarLinha()" class="text-blue-600 font-semibold hover:underline w-full py-2">+ Adicionar Novo Item</button>
+        </td>
+    </tr>
+</tbody>
                     </table>
                 </div>
             </div>
