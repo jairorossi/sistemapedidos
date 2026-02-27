@@ -8,7 +8,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     
     <script>
-        // Função de navegação atualizada para suportar as 4 abas
+        // NAVEGAÇÃO
         function mostrarAba(abaId) {
             const abas = ['aba-cadastro', 'aba-clientes', 'aba-produtos', 'aba-logistica'];
             abas.forEach(aba => document.getElementById(aba).classList.add('hidden'));
@@ -17,8 +17,13 @@
             const botoes = ['btn-cadastro', 'btn-clientes', 'btn-produtos', 'btn-logistica'];
             botoes.forEach(btn => document.getElementById(btn).classList.remove('bg-gray-700'));
             document.getElementById('btn-' + abaId.split('-')[1]).classList.add('bg-gray-700');
+            
+            // Recarrega as listas quando abre a aba
+            if(abaId === 'aba-clientes' && window.carregarClientes) window.carregarClientes();
+            if(abaId === 'aba-produtos' && window.carregarProdutos) window.carregarProdutos();
         }
 
+        // FUNÇÕES DA TABELA DO PEDIDO
         function adicionarLinha() {
             const tbody = document.getElementById('tabela-itens');
             const novaLinha = document.createElement('tr');
@@ -47,10 +52,7 @@
                 const qtd = parseFloat(linha.querySelector('.qtd-item')?.value) || 0;
                 const valor = parseFloat(linha.querySelector('.valor-item')?.value) || 0;
                 const totalLinha = qtd * valor;
-                
-                if(linha.querySelector('.total-linha')) {
-                    linha.querySelector('.total-linha').innerText = 'R$ ' + totalLinha.toFixed(2).replace('.', ',');
-                }
+                if(linha.querySelector('.total-linha')) linha.querySelector('.total-linha').innerText = 'R$ ' + totalLinha.toFixed(2).replace('.', ',');
                 subtotal += totalLinha;
             });
 
@@ -90,6 +92,7 @@
             document.getElementById('btn-gerar-pdf').setAttribute('data-total', totalGeral.toFixed(2).replace('.', ','));
         }
 
+        // GERAR PDF
         function gerarPDF() {
             const nomeCliente = document.getElementById('input-cliente').value || 'Cliente_Nao_Identificado';
             const endereco = document.getElementById('input-endereco').value || 'Não informado';
@@ -108,28 +111,14 @@
                 const qtd = linha.querySelector('.qtd-item')?.value || '0';
                 const desc = linha.querySelector('.desc-item')?.value || linha.cells[1].innerText;
                 const totalLinha = linha.querySelector('.total-linha')?.innerText || 'R$ 0,00';
-                
-                htmlTabela += `
-                    <tr class="border-b">
-                        <td class="py-2 text-center">${qtd}</td>
-                        <td class="py-2">${desc}</td>
-                        <td class="py-2 text-right">${totalLinha}</td>
-                    </tr>
-                `;
+                htmlTabela += `<tr class="border-b"><td class="py-2 text-center">${qtd}</td><td class="py-2">${desc}</td><td class="py-2 text-right">${totalLinha}</td></tr>`;
             });
             document.getElementById('pdf-corpo-tabela').innerHTML = htmlTabela;
 
             const elemento = document.getElementById('layout-impressao');
             elemento.classList.remove('hidden');
 
-            const opcoes = {
-                margin:       10,
-                filename:     `Pedido_${nomeCliente.replace(/\s+/g, '_')}.pdf`,
-                image:        { type: 'jpeg', quality: 0.98 },
-                html2canvas:  { scale: 2 },
-                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
-            };
-
+            const opcoes = { margin: 10, filename: `Pedido_${nomeCliente.replace(/\s+/g, '_')}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } };
             const btn = document.getElementById('btn-gerar-pdf');
             const textoOriginal = btn.innerHTML;
             btn.innerHTML = 'Gerando PDF...';
@@ -149,18 +138,10 @@
             <p class="text-xs text-gray-400">Sistema de Gestão</p>
         </div>
         <nav class="flex flex-row md:flex-col p-4 gap-2 overflow-x-auto whitespace-nowrap">
-            <button id="btn-cadastro" onclick="mostrarAba('aba-cadastro')" class="text-sm md:text-base text-left p-3 bg-gray-700 rounded hover:bg-gray-600 transition">
-                📦 Novo Pedido
-            </button>
-            <button id="btn-clientes" onclick="mostrarAba('aba-clientes')" class="text-sm md:text-base text-left p-3 rounded hover:bg-gray-600 transition">
-                👥 Clientes
-            </button>
-            <button id="btn-produtos" onclick="mostrarAba('aba-produtos')" class="text-sm md:text-base text-left p-3 rounded hover:bg-gray-600 transition">
-                🏷️ Produtos
-            </button>
-            <button id="btn-logistica" onclick="mostrarAba('aba-logistica')" class="text-sm md:text-base text-left p-3 rounded hover:bg-gray-600 transition">
-                🚚 Logística
-            </button>
+            <button id="btn-cadastro" onclick="mostrarAba('aba-cadastro')" class="text-sm md:text-base text-left p-3 bg-gray-700 rounded hover:bg-gray-600 transition">📦 Novo Pedido</button>
+            <button id="btn-clientes" onclick="mostrarAba('aba-clientes')" class="text-sm md:text-base text-left p-3 rounded hover:bg-gray-600 transition">👥 Clientes</button>
+            <button id="btn-produtos" onclick="mostrarAba('aba-produtos')" class="text-sm md:text-base text-left p-3 rounded hover:bg-gray-600 transition">🏷️ Produtos</button>
+            <button id="btn-logistica" onclick="mostrarAba('aba-logistica')" class="text-sm md:text-base text-left p-3 rounded hover:bg-gray-600 transition">🚚 Logística</button>
         </nav>
     </aside>
 
@@ -168,16 +149,12 @@
         
         <div id="aba-cadastro" class="space-y-6">
             <h2 class="text-2xl md:text-3xl font-bold text-gray-800 border-b pb-2">Novo Pedido</h2>
-            
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div class="bg-white p-4 md:p-6 rounded-lg shadow-sm">
                     <h3 class="text-lg font-semibold mb-4 text-gray-700">Dados do Cliente & Frete</h3>
                     <div class="space-y-3">
                         <input type="text" id="input-cliente" placeholder="Nome do Cliente (Busca automática em breve)" class="w-full p-2 border rounded bg-gray-50">
-                        <div class="flex flex-col md:flex-row gap-2">
-                            <input type="text" id="input-endereco" placeholder="Endereço Completo" class="w-full p-2 border rounded bg-gray-50">
-                        </div>
-                        
+                        <input type="text" id="input-endereco" placeholder="Endereço Completo" class="w-full p-2 border rounded bg-gray-50">
                         <div class="p-3 bg-blue-50 border border-blue-100 rounded">
                             <p class="text-xs font-semibold text-blue-800 mb-2">Cálculo de Frete (Frota Própria)</p>
                             <div class="flex flex-col md:flex-row gap-2 items-center">
@@ -189,7 +166,6 @@
                         </div>
                     </div>
                 </div>
-
                 <div class="bg-white p-4 md:p-6 rounded-lg shadow-sm">
                     <h3 class="text-lg font-semibold mb-4 text-gray-700">Controle do Pedido</h3>
                     <div class="space-y-3">
@@ -221,31 +197,19 @@
                     <table class="w-full text-left border-collapse min-w-[600px]">
                         <thead>
                             <tr class="bg-gray-100 text-gray-600 text-sm">
-                                <th class="p-2 border">Qtd</th>
-                                <th class="p-2 border">Produto</th>
-                                <th class="p-2 border">Fornecedor</th>
-                                <th class="p-2 border">Valor Unit. (R$)</th>
-                                <th class="p-2 border">Total</th>
+                                <th class="p-2 border">Qtd</th><th class="p-2 border">Produto</th><th class="p-2 border">Fornecedor</th><th class="p-2 border">Valor Unit. (R$)</th><th class="p-2 border">Total</th>
                             </tr>
                         </thead>
                         <tbody id="tabela-itens">
                             <tr class="text-sm">
                                 <td class="p-2 border"><input type="number" value="1" min="1" class="w-16 p-1 border rounded qtd-item" onchange="calcularTudo()" onkeyup="calcularTudo()"></td>
                                 <td class="p-2 border"><input type="text" placeholder="Nome do produto" class="w-full p-1 border rounded desc-item"></td>
-                                <td class="p-2 border">
-                                    <select class="w-full p-1 border rounded forn-item">
-                                        <option selected>Selecione...</option>
-                                        <option>Alumínios Brás</option>
-                                        <option>Vidraçaria Central</option>
-                                    </select>
-                                </td>
+                                <td class="p-2 border"><select class="w-full p-1 border rounded forn-item"><option selected>Selecione...</option><option>Alumínios Brás</option><option>Vidraçaria Central</option></select></td>
                                 <td class="p-2 border"><input type="number" value="0.00" step="0.01" class="w-24 p-1 border rounded valor-item" onchange="calcularTudo()" onkeyup="calcularTudo()"></td>
                                 <td class="p-2 border font-semibold total-linha">R$ 0,00</td>
                             </tr>
                             <tr class="text-sm" id="linha-adicionar">
-                                <td class="p-2 border bg-gray-50 text-center" colspan="5">
-                                    <button onclick="adicionarLinha()" class="text-blue-600 font-semibold hover:underline w-full py-2">+ Adicionar Novo Item</button>
-                                </td>
+                                <td class="p-2 border bg-gray-50 text-center" colspan="5"><button onclick="adicionarLinha()" class="text-blue-600 font-semibold hover:underline w-full py-2">+ Adicionar Novo Item</button></td>
                             </tr>
                         </tbody>
                     </table>
@@ -256,32 +220,17 @@
                 <div class="w-full md:w-1/2 space-y-4 md:pr-4">
                     <h3 class="text-lg font-semibold text-gray-700">Pagamento & Desconto</h3>
                     <div class="flex gap-4">
-                        <div class="w-1/2">
-                            <label class="text-xs text-gray-500">Desconto Geral (%)</label>
-                            <input type="number" id="input-desconto" value="0" min="0" max="100" class="w-full p-2 border rounded bg-gray-50" onchange="calcularTudo()" onkeyup="calcularTudo()">
-                        </div>
-                        <div class="w-1/2">
-                            <label class="text-xs text-gray-500">Forma de Pagamento</label>
-                            <select id="select-pagamento" class="w-full p-2 border rounded bg-gray-50" onchange="calcularTudo()">
-                                <option value="Pix">Pix</option>
-                                <option value="Dinheiro">Dinheiro</option>
-                                <option value="Cartão de Crédito">Cartão de Crédito</option>
-                            </select>
-                        </div>
+                        <div class="w-1/2"><label class="text-xs text-gray-500">Desconto Geral (%)</label><input type="number" id="input-desconto" value="0" min="0" class="w-full p-2 border rounded bg-gray-50" onchange="calcularTudo()" onkeyup="calcularTudo()"></div>
+                        <div class="w-1/2"><label class="text-xs text-gray-500">Forma de Pagamento</label><select id="select-pagamento" class="w-full p-2 border rounded bg-gray-50" onchange="calcularTudo()"><option value="Pix">Pix</option><option value="Dinheiro">Dinheiro</option><option value="Cartão de Crédito">Cartão de Crédito</option></select></div>
                     </div>
                     <div id="info-taxa" class="hidden text-sm text-red-600 bg-red-50 p-2 rounded border border-red-100"></div>
                 </div>
-
                 <div class="w-full md:w-1/3 bg-gray-50 p-4 rounded border text-right">
                     <p class="text-gray-500" id="display-subtotal">Subtotal: R$ 0,00</p>
                     <p class="text-green-600 font-medium" id="display-desconto">Desconto: - R$ 0,00</p>
                     <p class="text-gray-500" id="display-frete-final">Frete: R$ 0,00</p>
                     <p class="text-red-500 hidden" id="display-taxa-final">Acréscimo Cartão: R$ 0,00</p>
-                    
-                    <div class="border-t mt-2 pt-2 mb-4">
-                        <p class="text-2xl font-bold text-gray-800" id="display-total">Total: R$ 0,00</p>
-                    </div>
-                    
+                    <div class="border-t mt-2 pt-2 mb-4"><p class="text-2xl font-bold text-gray-800" id="display-total">Total: R$ 0,00</p></div>
                     <div class="flex flex-col gap-2">
                         <button id="btn-salvar" class="w-full bg-green-600 text-white font-bold py-2 rounded hover:bg-green-700 transition">💾 Salvar Pedido</button>
                         <button id="btn-gerar-pdf" onclick="gerarPDF()" data-total="0,00" class="w-full bg-gray-800 text-white font-bold py-2 rounded hover:bg-gray-900 border border-gray-700 shadow-sm">🖨️ Imprimir / PDF A4</button>
@@ -291,56 +240,76 @@
         </div>
 
         <div id="aba-clientes" class="hidden space-y-6">
-            <h2 class="text-2xl md:text-3xl font-bold text-gray-800 border-b pb-2">Cadastro de Clientes</h2>
-            <div class="bg-white p-4 md:p-6 rounded-lg shadow-sm max-w-2xl">
-                <h3 class="text-lg font-semibold mb-4 text-gray-700">Novo Cliente</h3>
-                <div class="space-y-4">
-                    <div>
+            <h2 class="text-2xl md:text-3xl font-bold text-gray-800 border-b pb-2">Gestão de Clientes</h2>
+            <div class="bg-white p-4 md:p-6 rounded-lg shadow-sm">
+                <h3 class="text-lg font-semibold mb-4 text-gray-700" id="titulo-form-cliente">Novo Cliente</h3>
+                <div class="space-y-4 max-w-2xl">
+                    <input type="hidden" id="cli-id" value=""> <div>
                         <label class="text-sm text-gray-600">Nome Completo / Razão Social</label>
-                        <input type="text" id="cli-nome" class="w-full p-2 border rounded bg-gray-50 focus:ring-2 focus:ring-yellow-500 outline-none">
+                        <input type="text" id="cli-nome" class="w-full p-2 border rounded bg-gray-50">
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label class="text-sm text-gray-600">Telefone / WhatsApp</label>
-                            <input type="text" id="cli-telefone" class="w-full p-2 border rounded bg-gray-50 focus:ring-2 focus:ring-yellow-500 outline-none">
-                        </div>
-                        <div>
-                            <label class="text-sm text-gray-600">CPF / CNPJ (Opcional)</label>
-                            <input type="text" id="cli-documento" class="w-full p-2 border rounded bg-gray-50 focus:ring-2 focus:ring-yellow-500 outline-none">
-                        </div>
+                        <div><label class="text-sm text-gray-600">Telefone / WhatsApp</label><input type="text" id="cli-telefone" class="w-full p-2 border rounded bg-gray-50"></div>
+                        <div><label class="text-sm text-gray-600">CPF / CNPJ</label><input type="text" id="cli-documento" class="w-full p-2 border rounded bg-gray-50"></div>
                     </div>
-                    <div>
-                        <label class="text-sm text-gray-600">Endereço Completo (Rua, Número, Bairro, CEP)</label>
-                        <input type="text" id="cli-endereco" class="w-full p-2 border rounded bg-gray-50 focus:ring-2 focus:ring-yellow-500 outline-none">
-                    </div>
-                    <div class="pt-4 text-right">
+                    <div><label class="text-sm text-gray-600">Endereço Completo</label><input type="text" id="cli-endereco" class="w-full p-2 border rounded bg-gray-50"></div>
+                    
+                    <div class="pt-4 flex gap-2 justify-end">
+                        <button id="btn-cancelar-cliente" class="hidden bg-gray-500 text-white font-bold py-2 px-4 rounded hover:bg-gray-600 transition" onclick="cancelarEdicaoCliente()">Cancelar</button>
                         <button id="btn-salvar-cliente" class="bg-blue-600 text-white font-bold py-2 px-6 rounded hover:bg-blue-700 transition">💾 Salvar Cliente</button>
+                    </div>
+                </div>
+                
+                <div class="mt-8 border-t pt-6">
+                    <h3 class="text-lg font-semibold mb-4 text-gray-700">Clientes Cadastrados</h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-gray-100 text-gray-600 text-sm">
+                                    <th class="p-2 border">Nome</th><th class="p-2 border">Telefone</th><th class="p-2 border">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="lista-clientes" class="text-sm">
+                                <tr><td colspan="3" class="p-4 text-center text-gray-500">Carregando clientes...</td></tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
         </div>
 
         <div id="aba-produtos" class="hidden space-y-6">
-            <h2 class="text-2xl md:text-3xl font-bold text-gray-800 border-b pb-2">Cadastro de Produtos</h2>
-            <div class="bg-white p-4 md:p-6 rounded-lg shadow-sm max-w-2xl">
-                <h3 class="text-lg font-semibold mb-4 text-gray-700">Novo Produto / Material</h3>
-                <div class="space-y-4">
-                    <div>
+            <h2 class="text-2xl md:text-3xl font-bold text-gray-800 border-b pb-2">Gestão de Produtos</h2>
+            <div class="bg-white p-4 md:p-6 rounded-lg shadow-sm">
+                <h3 class="text-lg font-semibold mb-4 text-gray-700" id="titulo-form-produto">Novo Produto / Material</h3>
+                <div class="space-y-4 max-w-2xl">
+                    <input type="hidden" id="prod-id" value=""> <div>
                         <label class="text-sm text-gray-600">Descrição do Produto</label>
-                        <input type="text" id="prod-desc" placeholder="Ex: Veneziana 6 folhas quadriculada" class="w-full p-2 border rounded bg-gray-50 focus:ring-2 focus:ring-yellow-500 outline-none">
+                        <input type="text" id="prod-desc" class="w-full p-2 border rounded bg-gray-50">
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label class="text-sm text-gray-600">Fornecedor Principal</label>
-                            <input type="text" id="prod-forn" placeholder="Ex: Alumínios Brás" class="w-full p-2 border rounded bg-gray-50 focus:ring-2 focus:ring-yellow-500 outline-none">
-                        </div>
-                        <div>
-                            <label class="text-sm text-gray-600">Valor Unitário Base (R$)</label>
-                            <input type="number" id="prod-valor" step="0.01" class="w-full p-2 border rounded bg-gray-50 focus:ring-2 focus:ring-yellow-500 outline-none">
-                        </div>
+                        <div><label class="text-sm text-gray-600">Fornecedor Principal</label><input type="text" id="prod-forn" class="w-full p-2 border rounded bg-gray-50"></div>
+                        <div><label class="text-sm text-gray-600">Valor Unitário Base (R$)</label><input type="number" id="prod-valor" step="0.01" class="w-full p-2 border rounded bg-gray-50"></div>
                     </div>
-                    <div class="pt-4 text-right">
+                    <div class="pt-4 flex gap-2 justify-end">
+                        <button id="btn-cancelar-produto" class="hidden bg-gray-500 text-white font-bold py-2 px-4 rounded hover:bg-gray-600 transition" onclick="cancelarEdicaoProduto()">Cancelar</button>
                         <button id="btn-salvar-produto" class="bg-blue-600 text-white font-bold py-2 px-6 rounded hover:bg-blue-700 transition">💾 Salvar Produto</button>
+                    </div>
+                </div>
+
+                <div class="mt-8 border-t pt-6">
+                    <h3 class="text-lg font-semibold mb-4 text-gray-700">Produtos Cadastrados</h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-gray-100 text-gray-600 text-sm">
+                                    <th class="p-2 border">Descrição</th><th class="p-2 border">Fornecedor</th><th class="p-2 border">Valor (R$)</th><th class="p-2 border">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="lista-produtos" class="text-sm">
+                                <tr><td colspan="4" class="p-4 text-center text-gray-500">Carregando produtos...</td></tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
@@ -356,91 +325,30 @@
                     <table class="w-full text-left border-collapse min-w-[700px]">
                         <thead>
                             <tr class="bg-gray-100 text-gray-600 text-sm">
-                                <th class="p-2 border">Incluir</th>
-                                <th class="p-2 border">Pedido</th>
-                                <th class="p-2 border">Cliente</th>
-                                <th class="p-2 border">Status</th>
-                                <th class="p-2 border">Ação WhatsApp</th>
+                                <th class="p-2 border">Incluir</th><th class="p-2 border">Pedido</th><th class="p-2 border">Cliente</th><th class="p-2 border">Status</th><th class="p-2 border">Ação WhatsApp</th>
                             </tr>
                         </thead>
-                        <tbody>
-                            <tr class="text-sm hover:bg-gray-50">
-                                <td class="p-2 border text-center"><input type="checkbox" checked></td>
-                                <td class="p-2 border font-bold">#781</td>
-                                <td class="p-2 border whitespace-nowrap">Marcelo Garutti</td>
-                                <td class="p-2 border whitespace-nowrap"><span class="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs">Em Entrega</span></td>
-                                <td class="p-2 border">
-                                    <button class="text-xs bg-green-500 text-white px-2 py-1 rounded hover:bg-green-600 whitespace-nowrap">
-                                        📲 Avisar Saída (Final 9497)
-                                    </button>
-                                </td>
-                            </tr>
+                        <tbody id="tabela-logistica">
+                            <tr class="text-sm"><td class="p-4 border text-center text-gray-500 bg-gray-50" colspan="5">Nenhum pedido aguardando entrega no momento.</td></tr>
                         </tbody>
                     </table>
                 </div>
             </div>
         </div>
-
     </main>
 
     <div id="layout-impressao" class="hidden absolute top-0 left-0 bg-white w-[794px] min-h-[1123px] p-10 z-50 text-black font-sans">
-        <div class="flex justify-between items-center border-b-2 border-black pb-4 mb-6">
-            <div>
-                <h1 class="text-4xl font-black tracking-tighter uppercase">MP<span class="text-gray-500">LEÃO</span></h1>
-                <p class="text-sm mt-1">Serralheria & Vidraçaria</p>
-            </div>
-            <div class="text-right">
-                <h2 class="text-xl font-bold">ORÇAMENTO / PEDIDO</h2>
-                <p class="text-sm mt-1">Data: <span id="pdf-data" class="font-semibold"></span></p>
-            </div>
-        </div>
-        <div class="border border-gray-300 rounded p-4 mb-6 bg-gray-50">
-            <div class="grid grid-cols-2 gap-4">
-                <div>
-                    <p class="text-xs text-gray-500 uppercase tracking-wide">Cliente</p>
-                    <p id="pdf-cliente" class="font-bold text-lg"></p>
-                </div>
-                <div>
-                    <p class="text-xs text-gray-500 uppercase tracking-wide">Previsão de Entrega</p>
-                    <p id="pdf-previsao" class="font-bold"></p>
-                </div>
-                <div class="col-span-2">
-                    <p class="text-xs text-gray-500 uppercase tracking-wide">Endereço de Entrega</p>
-                    <p id="pdf-endereco" class="font-bold"></p>
-                </div>
-            </div>
-        </div>
-        <div class="mb-8">
-            <table class="w-full text-left">
-                <thead>
-                    <tr class="bg-gray-200 text-gray-700 text-sm uppercase">
-                        <th class="py-2 px-2 text-center w-16 rounded-tl">Qtd</th>
-                        <th class="py-2 px-2">Descrição do Produto</th>
-                        <th class="py-2 px-2 text-right rounded-tr w-32">Total</th>
-                    </tr>
-                </thead>
-                <tbody id="pdf-corpo-tabela" class="text-sm"></tbody>
-            </table>
-        </div>
-        <div class="flex justify-end mt-10">
-            <div class="w-1/2 bg-gray-100 p-4 rounded border">
-                <p class="text-gray-600 text-sm uppercase">Total a Pagar</p>
-                <p id="pdf-total" class="text-3xl font-black mt-1"></p>
-            </div>
-        </div>
-        <div class="mt-20 pt-10 border-t border-gray-300 flex justify-between text-sm text-gray-500">
-            <div class="text-center w-1/2 border-r">
-                <p class="mt-8 border-t border-gray-400 mx-10 pt-2">Assinatura MPLEÃO</p>
-            </div>
-            <div class="text-center w-1/2">
-                <p class="mt-8 border-t border-gray-400 mx-10 pt-2">Assinatura do Cliente</p>
-            </div>
-        </div>
+        <div class="flex justify-between items-center border-b-2 border-black pb-4 mb-6"><div><h1 class="text-4xl font-black uppercase">MP<span class="text-gray-500">LEÃO</span></h1><p>Serralheria & Vidraçaria</p></div><div class="text-right"><h2 class="text-xl font-bold">ORÇAMENTO / PEDIDO</h2><p>Data: <span id="pdf-data"></span></p></div></div>
+        <div class="border p-4 mb-6 bg-gray-50"><div class="grid grid-cols-2 gap-4"><div><p class="text-xs text-gray-500 uppercase">Cliente</p><p id="pdf-cliente" class="font-bold text-lg"></p></div><div><p class="text-xs text-gray-500 uppercase">Previsão</p><p id="pdf-previsao" class="font-bold"></p></div><div class="col-span-2"><p class="text-xs text-gray-500 uppercase">Endereço</p><p id="pdf-endereco" class="font-bold"></p></div></div></div>
+        <div class="mb-8"><table class="w-full text-left"><thead><tr class="bg-gray-200 text-sm uppercase"><th class="py-2 px-2 text-center w-16">Qtd</th><th class="py-2 px-2">Descrição</th><th class="py-2 px-2 text-right w-32">Total</th></tr></thead><tbody id="pdf-corpo-tabela" class="text-sm"></tbody></table></div>
+        <div class="flex justify-end mt-10"><div class="w-1/2 bg-gray-100 p-4 rounded border"><p class="text-gray-600 text-sm uppercase">Total a Pagar</p><p id="pdf-total" class="text-3xl font-black mt-1"></p></div></div>
+        <div class="mt-20 pt-10 border-t flex justify-between text-sm text-gray-500"><div class="text-center w-1/2 border-r"><p class="mt-8 border-t mx-10 pt-2">Assinatura MPLEÃO</p></div><div class="text-center w-1/2"><p class="mt-8 border-t mx-10 pt-2">Assinatura do Cliente</p></div></div>
     </div>
 
     <script type="module">
+        // Importamos funções novas: getDocs (para listar), doc e updateDoc (para editar), deleteDoc (para excluir)
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, serverTimestamp, getDocs, doc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyBb8UGRV8qcjV6-_kd7WucWhoJBKSHcUac",
@@ -454,8 +362,183 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
-        // 1. SALVAR PEDIDO
+        // ==========================================
+        // LÓGICA DE CLIENTES (CRIAR, LER, ATUALIZAR, EXCLUIR)
+        // ==========================================
+        window.carregarClientes = async function() {
+            const tbody = document.getElementById('lista-clientes');
+            tbody.innerHTML = '<tr><td colspan="3" class="p-4 text-center text-gray-500">Carregando...</td></tr>';
+            try {
+                const querySnapshot = await getDocs(collection(db, "clientes"));
+                tbody.innerHTML = '';
+                if(querySnapshot.empty) {
+                    tbody.innerHTML = '<tr><td colspan="3" class="p-4 text-center text-gray-500">Nenhum cliente cadastrado.</td></tr>';
+                    return;
+                }
+                querySnapshot.forEach((doc) => {
+                    const data = doc.data();
+                    tbody.innerHTML += `
+                        <tr class="border-b hover:bg-gray-50">
+                            <td class="p-2 font-medium text-gray-800">${data.nome}</td>
+                            <td class="p-2 text-gray-600">${data.telefone || '-'}</td>
+                            <td class="p-2 space-x-2">
+                                <button onclick="editarCliente('${doc.id}', '${data.nome}', '${data.telefone}', '${data.documento}', '${data.endereco}')" class="text-blue-600 hover:text-blue-800 text-xs font-bold border border-blue-200 bg-blue-50 px-2 py-1 rounded">✏️ Editar</button>
+                                <button onclick="excluirCliente('${doc.id}')" class="text-red-600 hover:text-red-800 text-xs font-bold border border-red-200 bg-red-50 px-2 py-1 rounded">🗑️</button>
+                            </td>
+                        </tr>
+                    `;
+                });
+            } catch (e) { console.error(e); tbody.innerHTML = '<tr><td colspan="3" class="p-4 text-center text-red-500">Erro ao carregar dados.</td></tr>'; }
+        }
+
+        window.editarCliente = function(id, nome, telefone, documento, endereco) {
+            document.getElementById('cli-id').value = id;
+            document.getElementById('cli-nome').value = nome !== 'undefined' ? nome : '';
+            document.getElementById('cli-telefone').value = telefone !== 'undefined' ? telefone : '';
+            document.getElementById('cli-documento').value = documento !== 'undefined' ? documento : '';
+            document.getElementById('cli-endereco').value = endereco !== 'undefined' ? endereco : '';
+            
+            document.getElementById('titulo-form-cliente').innerText = '✏️ Editando Cliente';
+            document.getElementById('btn-salvar-cliente').innerText = '🔄 Atualizar Cliente';
+            document.getElementById('btn-salvar-cliente').classList.replace('bg-blue-600', 'bg-orange-500');
+            document.getElementById('btn-salvar-cliente').classList.replace('hover:bg-blue-700', 'hover:bg-orange-600');
+            document.getElementById('btn-cancelar-cliente').classList.remove('hidden');
+            window.scrollTo(0, 0); // Sobe a tela
+        }
+
+        window.cancelarEdicaoCliente = function() {
+            document.getElementById('cli-id').value = '';
+            document.getElementById('cli-nome').value = '';
+            document.getElementById('cli-telefone').value = '';
+            document.getElementById('cli-documento').value = '';
+            document.getElementById('cli-endereco').value = '';
+            
+            document.getElementById('titulo-form-cliente').innerText = 'Novo Cliente';
+            document.getElementById('btn-salvar-cliente').innerText = '💾 Salvar Cliente';
+            document.getElementById('btn-salvar-cliente').classList.replace('bg-orange-500', 'bg-blue-600');
+            document.getElementById('btn-salvar-cliente').classList.replace('hover:bg-orange-600', 'hover:bg-blue-700');
+            document.getElementById('btn-cancelar-cliente').classList.add('hidden');
+        }
+
+        window.excluirCliente = async function(id) {
+            if(confirm("Tem certeza que deseja excluir este cliente permanentemente?")) {
+                await deleteDoc(doc(db, "clientes", id));
+                window.carregarClientes();
+            }
+        }
+
+        document.getElementById('btn-salvar-cliente').addEventListener('click', async () => {
+            const id = document.getElementById('cli-id').value;
+            const nome = document.getElementById('cli-nome').value;
+            const telefone = document.getElementById('cli-telefone').value;
+            const documento = document.getElementById('cli-documento').value;
+            const endereco = document.getElementById('cli-endereco').value;
+
+            if(!nome) { alert('O nome é obrigatório!'); return; }
+
+            document.getElementById('btn-salvar-cliente').innerText = 'Salvando...';
+
+            try {
+                if(id) { // Se tem ID, é Atualização
+                    await updateDoc(doc(db, "clientes", id), { nome, telefone, documento, endereco });
+                } else { // Se não tem ID, é Cadastro Novo
+                    await addDoc(collection(db, "clientes"), { nome, telefone, documento, endereco, data_cadastro: serverTimestamp() });
+                }
+                window.cancelarEdicaoCliente();
+                window.carregarClientes(); // Recarrega a lista
+            } catch(e) { alert('Erro ao salvar cliente.'); console.error(e); }
+        });
+
+        // ==========================================
+        // LÓGICA DE PRODUTOS (CRIAR, LER, ATUALIZAR, EXCLUIR)
+        // ==========================================
+        window.carregarProdutos = async function() {
+            const tbody = document.getElementById('lista-produtos');
+            tbody.innerHTML = '<tr><td colspan="4" class="p-4 text-center text-gray-500">Carregando...</td></tr>';
+            try {
+                const querySnapshot = await getDocs(collection(db, "produtos"));
+                tbody.innerHTML = '';
+                if(querySnapshot.empty) {
+                    tbody.innerHTML = '<tr><td colspan="4" class="p-4 text-center text-gray-500">Nenhum produto cadastrado.</td></tr>';
+                    return;
+                }
+                querySnapshot.forEach((doc) => {
+                    const data = doc.data();
+                    const valorFormatado = data.valor_base ? data.valor_base.toFixed(2).replace('.', ',') : '0,00';
+                    tbody.innerHTML += `
+                        <tr class="border-b hover:bg-gray-50">
+                            <td class="p-2 font-medium text-gray-800">${data.descricao}</td>
+                            <td class="p-2 text-gray-600">${data.fornecedor || '-'}</td>
+                            <td class="p-2 text-gray-800 font-bold">R$ ${valorFormatado}</td>
+                            <td class="p-2 space-x-2">
+                                <button onclick="editarProduto('${doc.id}', '${data.descricao}', '${data.fornecedor}', '${data.valor_base}')" class="text-blue-600 hover:text-blue-800 text-xs font-bold border border-blue-200 bg-blue-50 px-2 py-1 rounded">✏️ Editar</button>
+                                <button onclick="excluirProduto('${doc.id}')" class="text-red-600 hover:text-red-800 text-xs font-bold border border-red-200 bg-red-50 px-2 py-1 rounded">🗑️</button>
+                            </td>
+                        </tr>
+                    `;
+                });
+            } catch (e) { console.error(e); tbody.innerHTML = '<tr><td colspan="4" class="p-4 text-center text-red-500">Erro ao carregar dados.</td></tr>'; }
+        }
+
+        window.editarProduto = function(id, descricao, fornecedor, valor_base) {
+            document.getElementById('prod-id').value = id;
+            document.getElementById('prod-desc').value = descricao !== 'undefined' ? descricao : '';
+            document.getElementById('prod-forn').value = fornecedor !== 'undefined' ? fornecedor : '';
+            document.getElementById('prod-valor').value = valor_base !== 'undefined' ? valor_base : '';
+            
+            document.getElementById('titulo-form-produto').innerText = '✏️ Editando Produto';
+            document.getElementById('btn-salvar-produto').innerText = '🔄 Atualizar Produto';
+            document.getElementById('btn-salvar-produto').classList.replace('bg-blue-600', 'bg-orange-500');
+            document.getElementById('btn-salvar-produto').classList.replace('hover:bg-blue-700', 'hover:bg-orange-600');
+            document.getElementById('btn-cancelar-produto').classList.remove('hidden');
+            window.scrollTo(0, 0);
+        }
+
+        window.cancelarEdicaoProduto = function() {
+            document.getElementById('prod-id').value = '';
+            document.getElementById('prod-desc').value = '';
+            document.getElementById('prod-forn').value = '';
+            document.getElementById('prod-valor').value = '';
+            
+            document.getElementById('titulo-form-produto').innerText = 'Novo Produto / Material';
+            document.getElementById('btn-salvar-produto').innerText = '💾 Salvar Produto';
+            document.getElementById('btn-salvar-produto').classList.replace('bg-orange-500', 'bg-blue-600');
+            document.getElementById('btn-salvar-produto').classList.replace('hover:bg-orange-600', 'hover:bg-blue-700');
+            document.getElementById('btn-cancelar-produto').classList.add('hidden');
+        }
+
+        window.excluirProduto = async function(id) {
+            if(confirm("Tem certeza que deseja excluir este produto?")) {
+                await deleteDoc(doc(db, "produtos", id));
+                window.carregarProdutos();
+            }
+        }
+
+        document.getElementById('btn-salvar-produto').addEventListener('click', async () => {
+            const id = document.getElementById('prod-id').value;
+            const descricao = document.getElementById('prod-desc').value;
+            const fornecedor = document.getElementById('prod-forn').value;
+            const valor = parseFloat(document.getElementById('prod-valor').value) || 0;
+
+            if(!descricao) { alert('A descrição é obrigatória!'); return; }
+            document.getElementById('btn-salvar-produto').innerText = 'Salvando...';
+
+            try {
+                if(id) {
+                    await updateDoc(doc(db, "produtos", id), { descricao, fornecedor, valor_base: valor });
+                } else {
+                    await addDoc(collection(db, "produtos"), { descricao, fornecedor, valor_base: valor, data_cadastro: serverTimestamp() });
+                }
+                window.cancelarEdicaoProduto();
+                window.carregarProdutos();
+            } catch(e) { alert('Erro ao salvar produto.'); console.error(e); }
+        });
+
+        // ==========================================
+        // SALVAR PEDIDO
+        // ==========================================
         document.getElementById('btn-salvar').addEventListener('click', async () => {
+            // (A lógica de salvar pedido não mudou, continua a mesma aqui)
             const btn = document.getElementById('btn-salvar');
             btn.innerHTML = 'Salvando na nuvem...';
             btn.classList.add('opacity-75');
@@ -466,34 +549,20 @@
             const totalGeral = parseFloat(totalTexto.replace(',', '.'));
 
             const itensPedido = [];
-            const linhasTr = document.querySelectorAll('#tabela-itens tr:not(#linha-adicionar)');
-            linhasTr.forEach(linha => {
+            document.querySelectorAll('#tabela-itens tr:not(#linha-adicionar)').forEach(linha => {
                 const qtd = parseFloat(linha.querySelector('.qtd-item')?.value) || 0;
                 const desc = linha.querySelector('.desc-item')?.value || '';
                 const valor = parseFloat(linha.querySelector('.valor-item')?.value) || 0;
-                if (desc !== '') {
-                    itensPedido.push({ quantidade: qtd, descricao: desc, valor_unitario: valor, total_linha: qtd * valor });
-                }
+                if (desc !== '') itensPedido.push({ quantidade: qtd, descricao: desc, valor_unitario: valor, total_linha: qtd * valor });
             });
 
-            const novoPedido = {
-                cliente_nome: cliente,
-                cliente_endereco: endereco,
-                itens: itensPedido,
-                valor_total: totalGeral,
-                status: "Orçamento",
-                data_criacao: serverTimestamp(),
-                editando_por: null
-            };
+            const novoPedido = { cliente_nome: cliente, cliente_endereco: endereco, itens: itensPedido, valor_total: totalGeral, status: "Orçamento", data_criacao: serverTimestamp(), editando_por: null };
 
             try {
                 const docRef = await addDoc(collection(db, "pedidos"), novoPedido);
                 btn.innerHTML = '✅ Pedido Salvo!';
                 btn.classList.replace('bg-green-600', 'bg-blue-600');
-                setTimeout(() => {
-                    alert(`Pedido gravado com sucesso! ID: ${docRef.id}`);
-                    window.location.reload(); 
-                }, 2000);
+                setTimeout(() => { alert(`Pedido gravado com sucesso! ID: ${docRef.id}`); window.location.reload(); }, 2000);
             } catch (erro) {
                 console.error("Erro ao salvar pedido: ", erro);
                 alert("Erro ao salvar pedido.");
@@ -501,51 +570,6 @@
                 btn.classList.remove('opacity-75');
             }
         });
-
-        // 2. SALVAR CLIENTE
-        document.getElementById('btn-salvar-cliente').addEventListener('click', async () => {
-            const btn = document.getElementById('btn-salvar-cliente');
-            btn.innerHTML = 'Salvando...';
-
-            const nome = document.getElementById('cli-nome').value;
-            const telefone = document.getElementById('cli-telefone').value;
-            const documento = document.getElementById('cli-documento').value;
-            const endereco = document.getElementById('cli-endereco').value;
-
-            if(!nome) { alert('Digite pelo menos o Nome do Cliente!'); btn.innerHTML = '💾 Salvar Cliente'; return; }
-
-            try {
-                await addDoc(collection(db, "clientes"), { nome, telefone, documento, endereco, data_cadastro: serverTimestamp() });
-                alert('Cliente cadastrado com sucesso!');
-                document.getElementById('cli-nome').value = '';
-                document.getElementById('cli-telefone').value = '';
-                document.getElementById('cli-documento').value = '';
-                document.getElementById('cli-endereco').value = '';
-                btn.innerHTML = '💾 Salvar Cliente';
-            } catch(e) { alert('Erro ao salvar cliente.'); console.error(e); }
-        });
-
-        // 3. SALVAR PRODUTO
-        document.getElementById('btn-salvar-produto').addEventListener('click', async () => {
-            const btn = document.getElementById('btn-salvar-produto');
-            btn.innerHTML = 'Salvando...';
-
-            const descricao = document.getElementById('prod-desc').value;
-            const fornecedor = document.getElementById('prod-forn').value;
-            const valor = parseFloat(document.getElementById('prod-valor').value) || 0;
-
-            if(!descricao) { alert('Digite a Descrição do Produto!'); btn.innerHTML = '💾 Salvar Produto'; return; }
-
-            try {
-                await addDoc(collection(db, "produtos"), { descricao, fornecedor, valor_base: valor, data_cadastro: serverTimestamp() });
-                alert('Produto cadastrado com sucesso!');
-                document.getElementById('prod-desc').value = '';
-                document.getElementById('prod-forn').value = '';
-                document.getElementById('prod-valor').value = '';
-                btn.innerHTML = '💾 Salvar Produto';
-            } catch(e) { alert('Erro ao salvar produto.'); console.error(e); }
-        });
-
     </script>
 </body>
 </html>
