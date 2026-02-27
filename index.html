@@ -94,7 +94,7 @@
         // ==========================================
         // GERAR PDF
         // ==========================================
-        function gerarPDF() {
+function gerarPDF() {
             const nomeCliente = document.getElementById('input-cliente').value || 'Cliente_Nao_Identificado';
             const endereco = document.getElementById('input-endereco').value || 'Não informado';
             const previsao = document.getElementById('input-previsao').value || 'A combinar';
@@ -102,12 +102,13 @@
             const idAtual = document.getElementById('pedido-id-atual').value;
             const numeroExibicao = idAtual ? idAtual.slice(-5).toUpperCase() : 'NOVO';
             
+            // Preenche o layout do PDF
             document.getElementById('pdf-cliente').innerText = nomeCliente;
             document.getElementById('pdf-endereco').innerText = endereco;
             document.getElementById('pdf-data').innerText = new Date().toLocaleDateString('pt-BR');
             document.getElementById('pdf-previsao').innerText = previsao;
             document.getElementById('pdf-total').innerText = 'R$ ' + total;
-            document.getElementById('pdf-numero').innerText = '#' + numeroExibicao;
+            document.getElementById('pdf-numero').innerText = 'PEDIDO #' + numeroExibicao;
 
             const linhasTr = document.querySelectorAll('#tabela-itens tr:not(#linha-adicionar)');
             let htmlTabela = '';
@@ -115,26 +116,43 @@
                 const qtd = linha.querySelector('.qtd-item')?.value || '0';
                 const desc = linha.querySelector('.desc-item')?.value || '';
                 const totalLinha = linha.querySelector('.total-linha')?.innerText || 'R$ 0,00';
-                if(desc !== '') {
-                    htmlTabela += `<tr class="border-b"><td class="py-2 text-center">${qtd}</td><td class="py-2">${desc}</td><td class="py-2 text-right">${totalLinha}</td></tr>`;
+                
+                // Só adiciona ao PDF se tiver descrição (evita linhas vazias)
+                if(desc.trim() !== '') {
+                    htmlTabela += `
+                        <tr style="border-bottom: 1px solid #ddd;">
+                            <td style="padding: 8px; text-align: center;">${qtd}</td>
+                            <td style="padding: 8px;">${desc}</td>
+                            <td style="padding: 8px; text-align: right; font-weight: bold;">${totalLinha}</td>
+                        </tr>
+                    `;
                 }
             });
             document.getElementById('pdf-corpo-tabela').innerHTML = htmlTabela;
 
+            // Mostra o layout, gera o PDF e esconde de novo
             const elemento = document.getElementById('layout-impressao');
             elemento.classList.remove('hidden');
 
-            const opcoes = { margin: 10, filename: `Pedido_${nomeCliente.replace(/\s+/g, '_')}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } };
+            const opcoes = {
+                margin:       15,
+                filename:     `Pedido_${numeroExibicao}_${nomeCliente.replace(/\s+/g, '_')}.pdf`,
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2, logging: false, useCORS: true },
+                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
+
             const btn = document.getElementById('btn-gerar-pdf');
             const textoOriginal = btn.innerHTML;
-            btn.innerHTML = 'Gerando PDF...';
+            btn.innerHTML = '✨ Preparando Impressão...';
 
             html2pdf().set(opcoes).from(elemento).save().then(() => {
                 elemento.classList.add('hidden');
                 btn.innerHTML = textoOriginal;
             });
         }
-    </script>
+	
+	</script>
 </head>
 <body class="bg-gray-100 flex flex-col md:flex-row h-screen overflow-hidden">
 
