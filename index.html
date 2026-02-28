@@ -1466,7 +1466,7 @@ function calcularTudo() {
         // ==========================================
         
 // ==========================================
-// FUNÇÃO CORRIGIDA - SELECIONAR STATUS (SEM ERRO)
+// FUNÇÃO CORRIGIDA - SELECIONAR STATUS
 // ==========================================
 window.selecionarStatus = function(novoStatus) {
     const selectStatus = document.getElementById('select-status');
@@ -1534,7 +1534,6 @@ window.selecionarStatus = function(novoStatus) {
         return;
     }
     
-    // Agora chama o Swal e depois o salvarPedidoAtual
     Swal.fire({
         title: 'Salvar pedido?',
         text: `Status alterado para ${novoStatus}. Deseja salvar o pedido agora?`,
@@ -1841,8 +1840,17 @@ window.selecionarStatus = function(novoStatus) {
         // ==========================================
         // FUNÇÃO PARA NOVO PEDIDO
         // ==========================================
-        window.novoPedido = function() {
-            console.log('➕ Iniciando novo pedido - reset completo');
+window.novoPedido = function() {
+    console.log('➕ Iniciando novo pedido - reset completo');
+    
+    // ==========================================
+    // RESETAR BLOQUEIO
+    // ==========================================
+    bloquearCampos(false);
+    document.getElementById('aviso-bloqueio').classList.add('hidden');
+    
+    // ... resto do código continua igual ...
+}
             
             document.getElementById('pedido-id-atual').value = '';
             
@@ -2337,296 +2345,319 @@ window.selecionarStatus = function(novoStatus) {
             carregarMemoriaBanco();
         });
 
-        // ==========================================
-        // FUNÇÃO PRINCIPAL - ABRIR PEDIDO
-        // ==========================================
-        window.abrirPedidoParaEdicao = function(id) {
-            console.log('🔍 Abrindo pedido para visualização/edição:', id);
-            
-            const pedido = window.bancoPedidos.find(x => x.id === id);
-            if (!pedido) {
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Erro',
-                    text: 'Pedido não encontrado!',
-                    confirmButtonColor: '#3b82f6'
-                });
-                return;
-            }
-
-            console.log('Pedido carregado:', pedido);
-            console.log('Valor total do pedido:', pedido.valor_total);
-            console.log('Itens do pedido:', pedido.itens);
-
-            const cliente = window.bancoClientes.find(c => c.id === pedido.cliente_id);
-            
-            document.getElementById('pedido-id-atual').value = pedido.id;
-            
-            const selectCliente = document.getElementById('input-cliente');
-            if (selectCliente && pedido.cliente_nome) {
-                if ($.fn.select2) {
-                    $(selectCliente).val(pedido.cliente_nome).trigger('change');
-                } else {
-                    selectCliente.value = pedido.cliente_nome;
-                }
-            }
-            
-            document.getElementById('pdf-n-display').innerText = '#' + (pedido.numero_sequencial?.toString().padStart(3,'0') || '???');
-            
-            if (cliente) {
-                document.getElementById('cliente-telefone').innerText = cliente.telefone || '-';
-                document.getElementById('cliente-documento').innerText = cliente.documento || '-';
-                document.getElementById('cliente-endereco').innerText = cliente.endereco || '-';
-                document.getElementById('cliente-cep').innerText = cliente.cep || '-';
-                document.getElementById('dados-cliente-container').classList.remove('hidden');
-                document.getElementById('input-endereco').value = cliente.endereco || '';
-            }
-            
-            document.getElementById('btn-cancelar-pedido').classList.remove('hidden');
-            atualizarTextoBotaoSalvar('editando');
-            
-            if (pedido.status) {
-                const selectStatus = document.getElementById('select-status');
-                if (selectStatus) {
-                    selectStatus.value = pedido.status;
-                    console.log('Status setado para:', pedido.status);
-                    
-                    const botoes = document.querySelectorAll('[id^="status-"]');
-                    botoes.forEach(btn => {
-                        btn.classList.remove('border-yellow-500', 'bg-yellow-50', 'text-yellow-700',
-                            'border-blue-500', 'bg-blue-50', 'text-blue-700',
-                            'border-orange-500', 'bg-orange-50', 'text-orange-700',
-                            'border-green-500', 'bg-green-50', 'text-green-700');
-                        btn.classList.add('border-gray-200', 'bg-gray-50', 'text-gray-700');
-                    });
-                    
-                    const statusMap = {
-                        'Orçamento': 'status-orcamento',
-                        'Produção': 'status-producao',
-                        'Em Entrega': 'status-entrega',
-                        'Entregue': 'status-entregue'
-                    };
-                    
-                    const btnId = statusMap[pedido.status];
-                    if (btnId) {
-                        const btn = document.getElementById(btnId);
-                        if (btn) {
-                            btn.classList.remove('border-gray-200', 'bg-gray-50', 'text-gray-700');
-                            if (pedido.status === 'Orçamento') {
-                                btn.classList.add('border-yellow-500', 'bg-yellow-50', 'text-yellow-700');
-                            } else if (pedido.status === 'Produção') {
-                                btn.classList.add('border-blue-500', 'bg-blue-50', 'text-blue-700');
-                            } else if (pedido.status === 'Em Entrega') {
-                                btn.classList.add('border-orange-500', 'bg-orange-50', 'text-orange-700');
-                            } else if (pedido.status === 'Entregue') {
-                                btn.classList.add('border-green-500', 'bg-green-50', 'text-green-700');
-                            }
-                        }
-                    }
-                    
-                    const progressos = {
-                        'Orçamento': { width: '25%', cor: 'bg-yellow-500', texto: 'Orçamento' },
-                        'Produção': { width: '50%', cor: 'bg-blue-500', texto: 'Em produção' },
-                        'Em Entrega': { width: '75%', cor: 'bg-orange-500', texto: 'Saiu para entrega' },
-                        'Entregue': { width: '100%', cor: 'bg-green-500', texto: 'Entregue' }
-                    };
-                    
-                    const prog = progressos[pedido.status] || progressos['Orçamento'];
-                    const barra = document.getElementById('progress-bar');
-                    const label = document.getElementById('status-label');
-                    
-                    if (barra) {
-                        barra.classList.remove('bg-yellow-500', 'bg-blue-500', 'bg-orange-500', 'bg-green-500');
-                        barra.classList.add(prog.cor);
-                        barra.style.width = prog.width;
-                    }
-                    if (label) {
-                        label.innerHTML = `Status: ${pedido.status} - ${prog.texto}`;
-                    }
-                }
-            }
-            
-            const statusBloqueados = ['Produção', 'Em Entrega', 'Entregue'];
-            if (statusBloqueados.includes(pedido.status)) {
-                bloquearCampos(true);
-                const aviso = document.getElementById('aviso-bloqueio');
-                const spanStatus = document.getElementById('status-bloqueio');
-                if (aviso && spanStatus) {
-                    spanStatus.innerText = pedido.status;
-                    aviso.classList.remove('hidden');
-                }
-            } else {
-                bloquearCampos(false);
-                const aviso = document.getElementById('aviso-bloqueio');
-                if (aviso) aviso.classList.add('hidden');
-            }
-            
-            if (pedido.frete) {
-                document.getElementById('input-km').value = pedido.frete.distancia || '0';
-                document.getElementById('input-litro').value = pedido.frete.preco_combustivel || '4.20';
-                document.getElementById('input-consumo').value = pedido.frete.consumo || '9.0';
-                
-                let pedagio = pedido.frete.pedagio || 0;
-                document.getElementById('input-pedagio').value = pedagio.toFixed(2).replace('.', ',');
-                
-                if (pedido.frete.custo_combustivel) {
-                    document.getElementById('custo-combustivel').innerText = pedido.frete.custo_combustivel;
-                }
-                if (pedido.frete.custo_total) {
-                    document.getElementById('custo-total-frete').innerText = pedido.frete.custo_total;
-                }
-            }
-            
-            if (pedido.desconto) document.getElementById('input-desconto').value = pedido.desconto;
-            if (pedido.acrescimo) document.getElementById('input-acrescimo').value = pedido.acrescimo.toFixed(2).replace('.', ',');
-            if (pedido.motivo_acrescimo) document.getElementById('input-motivo-acrescimo').value = pedido.motivo_acrescimo;
-            
-            if (pedido.condicao_pagamento) {
-                document.getElementById('select-condicao-pagamento').value = pedido.condicao_pagamento;
-                if (pedido.condicao_pagamento === 'Personalizado') {
-                    document.getElementById('div-parcelas-personalizado').classList.remove('hidden');
-                }
-            }
-            
-            if (pedido.primeiro_vencimento) {
-                document.getElementById('input-primeiro-vencimento').value = pedido.primeiro_vencimento;
-            }
-            
-
 // ==========================================
-// CARREGAR ITENS DO PEDIDO (VERSÃO FINAL CORRIGIDA)
+// FUNÇÃO PRINCIPAL - ABRIR PEDIDO (VERSÃO FINAL CORRIGIDA)
 // ==========================================
-const tbody = document.getElementById('tabela-itens');
-tbody.innerHTML = ''; // Limpa tudo
-
-if (pedido.itens && pedido.itens.length > 0) {
-    console.log(`📦 Carregando ${pedido.itens.length} itens do pedido`);
+window.abrirPedidoParaEdicao = function(id) {
+    console.log('🔍 Abrindo pedido para visualização/edição:', id);
     
-    pedido.itens.forEach((item, index) => {
-        console.log(`Item ${index + 1}:`, item);
-        
-        // ==========================================
-        // PROCESSAR O VALOR UNITÁRIO
-        // ==========================================
-        let valorUnitario = 0;
-        
-        if (typeof item.valor_unitario === 'string') {
-            valorUnitario = item.valor_unitario
-                .replace('R$', '')
-                .trim()
-                .replace('.', '')
-                .replace(',', '.');
-            valorUnitario = parseFloat(valorUnitario);
-        } 
-        else if (typeof item.valor_unitario === 'number') {
-            valorUnitario = item.valor_unitario;
-        }
-        
-        if (isNaN(valorUnitario)) {
-            console.warn(`⚠️ Valor unitário inválido para item ${index + 1}, usando 0`);
-            valorUnitario = 0;
-        }
-        
-        console.log(`Valor unitário processado: ${valorUnitario}`);
-        
-        const tr = document.createElement('tr'); 
-        tr.className = 'text-sm';
-        
-        const selectId = 'produto-select-' + Date.now() + '-' + index + '-' + Math.random().toString(36).substr(2, 5);
-        
-        // Montar o select com as opções
-        let selectHtml = `<select id="${selectId}" class="w-full p-1 border rounded desc-item border-blue-300 focus:ring-2 focus:ring-blue-500 bg-gray-50 produto-select" style="width: 100%;" onchange="window.preencherProduto(this)">`;
-        selectHtml += '<option value="">Selecione um produto</option>';
-        
-        window.bancoProdutos.forEach(p => {
-            const selected = p.descricao === item.descricao ? 'selected' : '';
-            selectHtml += `<option value="${p.descricao}" data-valor="${p.valor_base}" data-forn="${p.fornecedor || ''}" ${selected}>${p.descricao} - ${formatarValorReais(p.valor_base)}</option>`;
+    const pedido = window.bancoPedidos.find(x => x.id === id);
+    if (!pedido) {
+        Swal.fire({
+            icon: 'error',
+            title: 'Erro',
+            text: 'Pedido não encontrado!',
+            confirmButtonColor: '#3b82f6'
         });
-        
-        selectHtml += '</select>';
-        
-        const valorFormatado = formatarValorReais(valorUnitario);
-        console.log(`Valor formatado para exibição: ${valorFormatado}`);
-        
-        tr.innerHTML = `
-            <td class="p-2 border"><input type="number" value="${item.quantidade || 1}" class="w-16 p-1 border rounded qtd-item" onchange="calcularTudo()"></td>
-            <td class="p-2 border">${selectHtml}</td>
-            <td class="p-2 border"><input type="text" value="${item.fornecedor || ''}" class="w-full p-1 border rounded forn-item bg-gray-100" readonly></td>
-            <td class="p-2 border"><input type="text" value="${valorFormatado}" class="w-24 p-1 border rounded valor-item bg-gray-100 text-right" readonly></td>
-            <td class="p-2 border total-linha">R$ 0,00</td>
-            <td class="p-2 border text-center"><button onclick="if(podeEditarPedido()) { this.closest('tr').remove(); calcularTudo(); } else { Swal.fire({ icon: 'error', title: 'Ação bloqueada', text: '❌ Não é possível remover itens de um pedido em andamento!', confirmButtonColor: '#3b82f6' }); }" class="text-red-500 font-bold">X</button></td>
-        `;
-        
-        tbody.appendChild(tr);
-    });
-} else {
-    // ==========================================
-    // SE NÃO TEM ITENS, CRIA UMA LINHA EM BRANCO
-    // ==========================================
-    console.log('📦 Pedido sem itens, criando linha em branco');
-    const tr = document.createElement('tr');
-    tr.className = 'text-sm';
-    const selectId = 'produto-select-' + Date.now() + '-0';
-    tr.innerHTML = `
-        <td class="p-2 border"><input type="number" value="1" min="1" class="w-16 p-1 border rounded qtd-item" onchange="calcularTudo()" onkeyup="calcularTudo()"></td>
-        <td class="p-2 border">
-            <select id="${selectId}" class="w-full p-1 border rounded desc-item border-blue-300 focus:ring-2 focus:ring-blue-500 bg-gray-50 produto-select" style="width: 100%;" onchange="window.preencherProduto(this)">
-                <option value="">Selecione um produto</option>
-            </select>
-        </td>
-        <td class="p-2 border"><input type="text" placeholder="Fornecedor" class="w-full p-1 border rounded forn-item bg-gray-100" readonly></td>
-        <td class="p-2 border"><input type="text" class="w-24 p-1 border rounded valor-item bg-gray-100 text-right" value="R$ 0,00" readonly></td>
-        <td class="p-2 border font-semibold total-linha">R$ 0,00</td>
-        <td class="p-2 border text-center"><button onclick="if(podeEditarPedido()) { this.closest('tr').remove(); calcularTudo(); } else { Swal.fire({ icon: 'error', title: 'Ação bloqueada', text: '❌ Não é possível remover itens de um pedido em andamento!', confirmButtonColor: '#3b82f6' }); }" class="text-red-500 font-bold hover:text-red-700">X</button></td>
-    `;
-    tbody.appendChild(tr);
-}
+        return;
+    }
 
-// ==========================================
-// ADICIONAR LINHA DE ADICIONAR NOVO ITEM
-// ==========================================
-const linhaAdicionar = document.createElement('tr');
-linhaAdicionar.className = 'text-sm';
-linhaAdicionar.id = 'linha-adicionar';
-linhaAdicionar.innerHTML = `
-    <td class="p-2 border bg-gray-50 text-center" colspan="6">
-        <button onclick="adicionarLinha()" class="text-blue-600 font-semibold hover:underline w-full py-2">
-            + Adicionar Item
-        </button>
-    </td>
-`;
-tbody.appendChild(linhaAdicionar);
+    console.log('Pedido carregado:', pedido);
+    console.log('Valor total do pedido:', pedido.valor_total);
+    console.log('Itens do pedido:', pedido.itens);
 
-// ==========================================
-// INICIALIZAR SELECT2
-// ==========================================
-setTimeout(() => {
-    document.querySelectorAll('.produto-select').forEach(select => {
-        if ($.fn.select2) {
-            $(select).select2({
-                placeholder: "Busque um produto...",
-                allowClear: true,
-                width: '100%'
-            });
-        }
-    });
-}, 100);
-
-mostrarAba('aba-cadastro');
-
-// ==========================================
-// CHAMAR CALCULAR TUDO (COM REMOÇÃO DO BLOQUEIO)
-// ==========================================
-setTimeout(() => {
-    console.log('🔄 Chamando calcularTudo() após delay de 800ms...');
-    calcularTudo();
+    const cliente = window.bancoClientes.find(c => c.id === pedido.cliente_id);
     
-    setTimeout(() => {
-        const total = document.getElementById('display-total').innerText;
-        console.log('Total final:', total);
-    }, 100);
-}, 800);
+    // ==========================================
+    // RESETAR BLOQUEIO ANTES DE CARREGAR
+    // ==========================================
+    bloquearCampos(false);
+    document.getElementById('aviso-bloqueio').classList.add('hidden');
+    
+    // ==========================================
+    // DADOS BÁSICOS
+    // ==========================================
+    document.getElementById('pedido-id-atual').value = pedido.id;
+    
+    const selectCliente = document.getElementById('input-cliente');
+    if (selectCliente && pedido.cliente_nome) {
+        if ($.fn.select2) {
+            $(selectCliente).val(pedido.cliente_nome).trigger('change');
+        } else {
+            selectCliente.value = pedido.cliente_nome;
+        }
+    }
+    
+    document.getElementById('pdf-n-display').innerText = '#' + (pedido.numero_sequencial?.toString().padStart(3,'0') || '???');
+    
+    // ==========================================
+    // DADOS DO CLIENTE
+    // ==========================================
+    if (cliente) {
+        document.getElementById('cliente-telefone').innerText = cliente.telefone || '-';
+        document.getElementById('cliente-documento').innerText = cliente.documento || '-';
+        document.getElementById('cliente-endereco').innerText = cliente.endereco || '-';
+        document.getElementById('cliente-cep').innerText = cliente.cep || '-';
+        document.getElementById('dados-cliente-container').classList.remove('hidden');
+        document.getElementById('input-endereco').value = cliente.endereco || '';
+    }
+    
+    document.getElementById('btn-cancelar-pedido').classList.remove('hidden');
+    atualizarTextoBotaoSalvar('editando');
+    
+    // ==========================================
+    // STATUS DO PEDIDO
+    // ==========================================
+    if (pedido.status) {
+        const selectStatus = document.getElementById('select-status');
+        if (selectStatus) {
+            selectStatus.value = pedido.status;
+            console.log('Status setado para:', pedido.status);
+            
+            // Atualiza botões de status
+            const botoes = document.querySelectorAll('[id^="status-"]');
+            botoes.forEach(btn => {
+                btn.classList.remove('border-yellow-500', 'bg-yellow-50', 'text-yellow-700',
+                    'border-blue-500', 'bg-blue-50', 'text-blue-700',
+                    'border-orange-500', 'bg-orange-50', 'text-orange-700',
+                    'border-green-500', 'bg-green-50', 'text-green-700');
+                btn.classList.add('border-gray-200', 'bg-gray-50', 'text-gray-700');
+            });
+            
+            const statusMap = {
+                'Orçamento': 'status-orcamento',
+                'Produção': 'status-producao',
+                'Em Entrega': 'status-entrega',
+                'Entregue': 'status-entregue'
+            };
+            
+            const btnId = statusMap[pedido.status];
+            if (btnId) {
+                const btn = document.getElementById(btnId);
+                if (btn) {
+                    btn.classList.remove('border-gray-200', 'bg-gray-50', 'text-gray-700');
+                    if (pedido.status === 'Orçamento') {
+                        btn.classList.add('border-yellow-500', 'bg-yellow-50', 'text-yellow-700');
+                    } else if (pedido.status === 'Produção') {
+                        btn.classList.add('border-blue-500', 'bg-blue-50', 'text-blue-700');
+                    } else if (pedido.status === 'Em Entrega') {
+                        btn.classList.add('border-orange-500', 'bg-orange-50', 'text-orange-700');
+                    } else if (pedido.status === 'Entregue') {
+                        btn.classList.add('border-green-500', 'bg-green-50', 'text-green-700');
+                    }
+                }
+            }
+            
+            // Atualiza barra de progresso
+            const progressos = {
+                'Orçamento': { width: '25%', cor: 'bg-yellow-500', texto: 'Orçamento' },
+                'Produção': { width: '50%', cor: 'bg-blue-500', texto: 'Em produção' },
+                'Em Entrega': { width: '75%', cor: 'bg-orange-500', texto: 'Saiu para entrega' },
+                'Entregue': { width: '100%', cor: 'bg-green-500', texto: 'Entregue' }
+            };
+            
+            const prog = progressos[pedido.status] || progressos['Orçamento'];
+            const barra = document.getElementById('progress-bar');
+            const label = document.getElementById('status-label');
+            
+            if (barra) {
+                barra.classList.remove('bg-yellow-500', 'bg-blue-500', 'bg-orange-500', 'bg-green-500');
+                barra.classList.add(prog.cor);
+                barra.style.width = prog.width;
+            }
+            if (label) {
+                label.innerHTML = `Status: ${pedido.status} - ${prog.texto}`;
+            }
+        }
+    }
+    
+    // ==========================================
+    // BLOQUEAR CAMPOS SE NECESSÁRIO
+    // ==========================================
+    const statusBloqueados = ['Produção', 'Em Entrega', 'Entregue'];
+    if (statusBloqueados.includes(pedido.status)) {
+        bloquearCampos(true);
+        const aviso = document.getElementById('aviso-bloqueio');
+        const spanStatus = document.getElementById('status-bloqueio');
+        if (aviso && spanStatus) {
+            spanStatus.innerText = pedido.status;
+            aviso.classList.remove('hidden');
+        }
+    }
+    
+    // ==========================================
+    // DADOS DO FRETE
+    // ==========================================
+    if (pedido.frete) {
+        document.getElementById('input-km').value = pedido.frete.distancia || '0';
+        document.getElementById('input-litro').value = pedido.frete.preco_combustivel || '4.20';
+        document.getElementById('input-consumo').value = pedido.frete.consumo || '9.0';
+        
+        let pedagio = pedido.frete.pedagio || 0;
+        document.getElementById('input-pedagio').value = pedagio.toFixed(2).replace('.', ',');
+        
+        if (pedido.frete.custo_combustivel) {
+            document.getElementById('custo-combustivel').innerText = pedido.frete.custo_combustivel;
+        }
+        if (pedido.frete.custo_total) {
+            document.getElementById('custo-total-frete').innerText = pedido.frete.custo_total;
+        }
+    }
+    
+    // ==========================================
+    // DESCONTOS E ACRÉSCIMOS
+    // ==========================================
+    if (pedido.desconto) document.getElementById('input-desconto').value = pedido.desconto;
+    if (pedido.acrescimo) document.getElementById('input-acrescimo').value = pedido.acrescimo.toFixed(2).replace('.', ',');
+    if (pedido.motivo_acrescimo) document.getElementById('input-motivo-acrescimo').value = pedido.motivo_acrescimo;
+    
+    // ==========================================
+    // CONDIÇÕES DE PAGAMENTO
+    // ==========================================
+    if (pedido.condicao_pagamento) {
+        document.getElementById('select-condicao-pagamento').value = pedido.condicao_pagamento;
+        if (pedido.condicao_pagamento === 'Personalizado') {
+            document.getElementById('div-parcelas-personalizado').classList.remove('hidden');
+        }
+    }
+    
+    if (pedido.primeiro_vencimento) {
+        document.getElementById('input-primeiro-vencimento').value = pedido.primeiro_vencimento;
+    }
+    
+    // ==========================================
+    // CARREGAR ITENS DO PEDIDO
+    // ==========================================
+    const tbody = document.getElementById('tabela-itens');
+    tbody.innerHTML = ''; // Limpa tudo
 
+    if (pedido.itens && pedido.itens.length > 0) {
+        console.log(`📦 Carregando ${pedido.itens.length} itens do pedido`);
+        
+        pedido.itens.forEach((item, index) => {
+            console.log(`Item ${index + 1}:`, item);
+            
+            // ==========================================
+            // PROCESSAR O VALOR UNITÁRIO
+            // ==========================================
+            let valorUnitario = 0;
+            
+            if (typeof item.valor_unitario === 'string') {
+                valorUnitario = item.valor_unitario
+                    .replace('R$', '')
+                    .trim()
+                    .replace('.', '')
+                    .replace(',', '.');
+                valorUnitario = parseFloat(valorUnitario);
+            } 
+            else if (typeof item.valor_unitario === 'number') {
+                valorUnitario = item.valor_unitario;
+            }
+            
+            if (isNaN(valorUnitario)) {
+                console.warn(`⚠️ Valor unitário inválido para item ${index + 1}, usando 0`);
+                valorUnitario = 0;
+            }
+            
+            console.log(`Valor unitário processado: ${valorUnitario}`);
+            
+            const tr = document.createElement('tr'); 
+            tr.className = 'text-sm';
+            
+            const selectId = 'produto-select-' + Date.now() + '-' + index + '-' + Math.random().toString(36).substr(2, 5);
+            
+            // Montar o select com as opções
+            let selectHtml = `<select id="${selectId}" class="w-full p-1 border rounded desc-item border-blue-300 focus:ring-2 focus:ring-blue-500 bg-gray-50 produto-select" style="width: 100%;" onchange="window.preencherProduto(this)">`;
+            selectHtml += '<option value="">Selecione um produto</option>';
+            
+            window.bancoProdutos.forEach(p => {
+                const selected = p.descricao === item.descricao ? 'selected' : '';
+                selectHtml += `<option value="${p.descricao}" data-valor="${p.valor_base}" data-forn="${p.fornecedor || ''}" ${selected}>${p.descricao} - ${formatarValorReais(p.valor_base)}</option>`;
+            });
+            
+            selectHtml += '</select>';
+            
+            const valorFormatado = formatarValorReais(valorUnitario);
+            console.log(`Valor formatado para exibição: ${valorFormatado}`);
+            
+            tr.innerHTML = `
+                <td class="p-2 border"><input type="number" value="${item.quantidade || 1}" class="w-16 p-1 border rounded qtd-item" onchange="calcularTudo()"></td>
+                <td class="p-2 border">${selectHtml}</td>
+                <td class="p-2 border"><input type="text" value="${item.fornecedor || ''}" class="w-full p-1 border rounded forn-item bg-gray-100" readonly></td>
+                <td class="p-2 border"><input type="text" value="${valorFormatado}" class="w-24 p-1 border rounded valor-item bg-gray-100 text-right" readonly></td>
+                <td class="p-2 border total-linha">R$ 0,00</td>
+                <td class="p-2 border text-center"><button onclick="if(podeEditarPedido()) { this.closest('tr').remove(); calcularTudo(); } else { Swal.fire({ icon: 'error', title: 'Ação bloqueada', text: '❌ Não é possível remover itens de um pedido em andamento!', confirmButtonColor: '#3b82f6' }); }" class="text-red-500 font-bold">X</button></td>
+            `;
+            
+            tbody.appendChild(tr);
+        });
+    } else {
+        // ==========================================
+        // SE NÃO TEM ITENS, CRIA UMA LINHA EM BRANCO
+        // ==========================================
+        console.log('📦 Pedido sem itens, criando linha em branco');
+        const tr = document.createElement('tr');
+        tr.className = 'text-sm';
+        const selectId = 'produto-select-' + Date.now() + '-0';
+        tr.innerHTML = `
+            <td class="p-2 border"><input type="number" value="1" min="1" class="w-16 p-1 border rounded qtd-item" onchange="calcularTudo()" onkeyup="calcularTudo()"></td>
+            <td class="p-2 border">
+                <select id="${selectId}" class="w-full p-1 border rounded desc-item border-blue-300 focus:ring-2 focus:ring-blue-500 bg-gray-50 produto-select" style="width: 100%;" onchange="window.preencherProduto(this)">
+                    <option value="">Selecione um produto</option>
+                </select>
+            </td>
+            <td class="p-2 border"><input type="text" placeholder="Fornecedor" class="w-full p-1 border rounded forn-item bg-gray-100" readonly></td>
+            <td class="p-2 border"><input type="text" class="w-24 p-1 border rounded valor-item bg-gray-100 text-right" value="R$ 0,00" readonly></td>
+            <td class="p-2 border font-semibold total-linha">R$ 0,00</td>
+            <td class="p-2 border text-center"><button onclick="if(podeEditarPedido()) { this.closest('tr').remove(); calcularTudo(); } else { Swal.fire({ icon: 'error', title: 'Ação bloqueada', text: '❌ Não é possível remover itens de um pedido em andamento!', confirmButtonColor: '#3b82f6' }); }" class="text-red-500 font-bold hover:text-red-700">X</button></td>
+        `;
+        tbody.appendChild(tr);
+    }
+
+    // ==========================================
+    // ADICIONAR LINHA DE ADICIONAR NOVO ITEM
+    // ==========================================
+    const linhaAdicionar = document.createElement('tr');
+    linhaAdicionar.className = 'text-sm';
+    linhaAdicionar.id = 'linha-adicionar';
+    linhaAdicionar.innerHTML = `
+        <td class="p-2 border bg-gray-50 text-center" colspan="6">
+            <button onclick="adicionarLinha()" class="text-blue-600 font-semibold hover:underline w-full py-2">
+                + Adicionar Item
+            </button>
+        </td>
+    `;
+    tbody.appendChild(linhaAdicionar);
+
+    // ==========================================
+    // INICIALIZAR SELECT2
+    // ==========================================
+    setTimeout(() => {
+        document.querySelectorAll('.produto-select').forEach(select => {
+            if ($.fn.select2) {
+                $(select).select2({
+                    placeholder: "Busque um produto...",
+                    allowClear: true,
+                    width: '100%'
+                });
+            }
+        });
+    }, 100);
+
+    mostrarAba('aba-cadastro');
+
+    // ==========================================
+    // CHAMAR CALCULAR TUDO (APÓS TUDO CARREGADO)
+    // ==========================================
+    setTimeout(() => {
+        console.log('🔄 Chamando calcularTudo() após delay de 800ms...');
+        calcularTudo();
+        
+        setTimeout(() => {
+            const total = document.getElementById('display-total').innerText;
+            console.log('Total final:', total);
+        }, 100);
+    }, 800);
 };
 
         window.editarCliente = function(id, nome, telefone, documento, endereco, cep) {
