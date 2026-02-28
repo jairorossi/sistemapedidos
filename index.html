@@ -426,90 +426,98 @@ function calcularTudo() {
                 </div>
             </div>
             
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div class="bg-white p-4 md:p-6 rounded-lg shadow-sm cliente-card">
-                    <h3 class="text-lg font-semibold mb-4 text-gray-700 flex items-center gap-2">
-                        👤 Dados do Cliente
-                    </h3>
-                    
-                    <div class="mb-4">
-                        <label class="text-xs text-gray-500 mb-1 block">🔍 Selecione o Cliente</label>
-                        <select id="input-cliente" class="w-full p-2 border rounded bg-gray-50 border-blue-300 focus:ring-2 focus:ring-blue-500 cliente-select" onchange="window.carregarDadosCliente()">
-                            <option value="">Selecione um cliente</option>
-                        </select>
-                    </div>
-                    
-                    <div id="dados-cliente-container" class="hidden space-y-3 p-4 bg-gray-50 rounded-lg border border-gray-200">
-                        <div class="flex items-center gap-2 text-sm">
-                            <span class="font-medium text-gray-600 w-24">Telefone:</span>
-                            <span id="cliente-telefone" class="text-gray-800">-</span>
-                        </div>
-                        <div class="flex items-center gap-2 text-sm">
-                            <span class="font-medium text-gray-600 w-24">Documento:</span>
-                            <span id="cliente-documento" class="text-gray-800">-</span>
-                        </div>
-                        <div class="flex items-center gap-2 text-sm">
-                            <span class="font-medium text-gray-600 w-24">Endereço:</span>
-                            <span id="cliente-endereco" class="text-gray-800">-</span>
-                        </div>
-                        <div class="flex items-center gap-2 text-sm">
-                            <span class="font-medium text-gray-600 w-24">CEP:</span>
-                            <span id="cliente-cep" class="text-gray-800">-</span>
-                        </div>
-                    </div>
-                    
-                    <input type="hidden" id="input-endereco">
-                </div>
+ <!-- ========== BLOCO CLIENTE (lado esquerdo) ========== -->
+<div class="bg-white p-4 md:p-6 rounded-lg shadow-sm cliente-card">
+    <h3 class="text-lg font-semibold mb-4 text-gray-700 flex items-center gap-2">
+        👤 Dados do Cliente
+    </h3>
+    
+    <div class="mb-4">
+        <label class="text-xs text-gray-500 mb-1 block">🔍 Selecione o Cliente</label>
+        <select id="input-cliente" class="w-full p-2 border rounded bg-gray-50 border-blue-300 focus:ring-2 focus:ring-blue-500 cliente-select" onchange="window.carregarDadosCliente()">
+            <option value="">Selecione um cliente</option>
+        </select>
+    </div>
+    
+    <div id="dados-cliente-container" class="hidden space-y-2 p-4 bg-gray-50 rounded-lg border border-gray-200">
+        <div class="grid grid-cols-2 gap-2 text-sm">
+            <span class="font-medium text-gray-600">Telefone:</span>
+            <span id="cliente-telefone" class="text-gray-800">-</span>
+            
+            <span class="font-medium text-gray-600">Documento:</span>
+            <span id="cliente-documento" class="text-gray-800">-</span>
+            
+            <span class="font-medium text-gray-600">Endereço:</span>
+            <span id="cliente-endereco" class="text-gray-800">-</span>
+            
+            <span class="font-medium text-gray-600">CEP:</span>
+            <span id="cliente-cep" class="text-gray-800">-</span>
+        </div>
+    </div>
+    
+    <input type="hidden" id="input-endereco">
+</div>
 
-                <div class="bg-white p-4 md:p-6 rounded-lg shadow-sm">
-                    <h3 class="text-lg font-semibold mb-4 text-gray-700 flex items-center gap-2">
-                        🚚 Cálculo de Frete (Manual)
-                    </h3>
-                    
-                    <div class="space-y-4">
-                        <div>
-                            <label class="text-xs text-gray-500 mb-1 block">📏 Distância (KM)</label>
-                            <input type="number" id="input-km" value="0" step="0.1" class="w-full p-2 border rounded bg-gray-50 focus:ring-2 focus:ring-blue-500" onchange="calcularTudo()" onkeyup="calcularTudo()" placeholder="Ex: 200">
-                        </div>
-                        
-                        <div>
-                            <label class="text-xs text-gray-500 mb-1 block">⛽ Preço do Combustível (R$)</label>
-                            <input type="number" id="input-litro" value="4.20" step="0.01" class="w-full p-2 border rounded bg-gray-50 focus:ring-2 focus:ring-blue-500" onchange="calcularTudo()" onkeyup="calcularTudo()">
-                        </div>
-                        
-                        <div>
-                            <label class="text-xs text-gray-500 mb-1 block">⚡ Consumo (km/l)</label>
-                            <input type="number" id="input-consumo" value="9.0" step="0.1" class="w-full p-2 border rounded bg-gray-50 focus:ring-2 focus:ring-blue-500" onchange="calcularTudo()" onkeyup="calcularTudo()">
-                        </div>
-                        
-                        <div>
-                            <label class="text-xs text-gray-500 mb-1 block">🛣️ Pedágio (R$)</label>
-                            <input type="text" id="input-pedagio" value="0,00" class="w-full p-2 border rounded bg-gray-50 focus:ring-2 focus:ring-blue-500 text-right" onchange="calcularTudo()" onkeyup="formatarValorInput(this); calcularTudo()" placeholder="0,00">
-                        </div>
-                        
-                        <div class="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                            <h4 class="text-sm font-semibold text-blue-800 mb-3">📊 Resultado do Frete</h4>
-                            
-                            <div class="space-y-2">
-                                <div class="flex justify-between items-center text-sm">
-                                    <span class="text-gray-600">Custo combustível:</span>
-                                    <span class="font-medium text-blue-800" id="custo-combustivel">R$ 0,00</span>
-                                </div>
-                                <div class="flex justify-between items-center text-sm">
-                                    <span class="text-gray-600">Pedágio:</span>
-                                    <span class="font-medium text-blue-800" id="custo-pedagio">R$ 0,00</span>
-                                </div>
-                                <div class="border-t border-blue-200 my-2"></div>
-                                <div class="flex justify-between items-center font-bold">
-                                    <span class="text-gray-700">Total do Frete:</span>
-                                    <span class="text-lg text-blue-900" id="custo-total-frete">R$ 0,00</span>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <input type="hidden" id="display-frete-estimado">
-                    </div>
+<!-- ========== BLOCO FRETE (LAYOUT SUPER COMPACTO) ========== -->
+<!-- ========== BLOCO FRETE (LAYOT BALANCEADO) ========== -->
+<div class="bg-white p-4 md:p-6 rounded-lg shadow-sm">
+    <h3 class="text-lg font-semibold mb-4 text-gray-700 flex items-center gap-2">
+        🚚 Cálculo de Frete (Manual)
+    </h3>
+    
+    <!-- Layout com 50% inputs / 50% resultados -->
+    <div class="flex flex-wrap items-end gap-2">
+        <!-- Inputs (ocupam cerca de 50%) -->
+        <div class="flex flex-wrap gap-2 flex-1 min-w-[300px]">
+            <!-- Distância -->
+            <div class="w-20">
+                <label class="text-xs text-gray-500 mb-1 block">📏 KM</label>
+                <input type="number" id="input-km" value="0" step="0.1" class="w-full p-2 border rounded bg-gray-50 focus:ring-2 focus:ring-blue-500 text-sm" onchange="calcularTudo()" onkeyup="calcularTudo()" placeholder="200">
+            </div>
+            
+            <!-- Combustível -->
+            <div class="w-20">
+                <label class="text-xs text-gray-500 mb-1 block">⛽ R$/L</label>
+                <input type="number" id="input-litro" value="4.20" step="0.01" class="w-full p-2 border rounded bg-gray-50 focus:ring-2 focus:ring-blue-500 text-sm" onchange="calcularTudo()" onkeyup="calcularTudo()" placeholder="4,20">
+            </div>
+            
+            <!-- Consumo -->
+            <div class="w-20">
+                <label class="text-xs text-gray-500 mb-1 block">⚡ km/l</label>
+                <input type="number" id="input-consumo" value="9.0" step="0.1" class="w-full p-2 border rounded bg-gray-50 focus:ring-2 focus:ring-blue-500 text-sm" onchange="calcularTudo()" onkeyup="calcularTudo()" placeholder="9,0">
+            </div>
+            
+            <!-- Pedágio -->
+            <div class="w-20">
+                <label class="text-xs text-gray-500 mb-1 block">🛣️ Pedágio</label>
+                <input type="text" id="input-pedagio" value="0,00" class="w-full p-2 border rounded bg-gray-50 focus:ring-2 focus:ring-blue-500 text-right text-sm" onchange="calcularTudo()" onkeyup="formatarValorInput(this); calcularTudo()" placeholder="0,00">
+            </div>
+        </div>
+        
+        <!-- Resultados (ocupam cerca de 50%) -->
+        <div class="bg-blue-50 p-2 rounded-lg border border-blue-200 w-[250px]">
+            <div class="grid grid-cols-3 gap-1">
+                <div class="text-center">
+                    <span class="text-gray-600 text-xs">Combustível</span>
+                    <span class="font-medium text-blue-800 block text-sm" id="custo-combustivel">R$ 0,00</span>
                 </div>
+                <div class="text-center border-l border-blue-200">
+                    <span class="text-gray-600 text-xs">Pedágio</span>
+                    <span class="font-medium text-blue-800 block text-sm" id="custo-pedagio">R$ 0,00</span>
+                </div>
+                <div class="text-center border-l border-blue-200">
+                    <span class="text-gray-600 text-xs">Total</span>
+                    <span class="font-bold text-blue-900 block text-sm" id="custo-total-frete">R$ 0,00</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <input type="hidden" id="display-frete-estimado">
+</div>
+<!-- fim bloco exibir frete --> 
+				
+				</div>
             </div>
 
             <div class="bg-white p-4 md:p-6 rounded-lg shadow-sm">
