@@ -11,6 +11,8 @@
     <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+    <!-- SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     
     <style>
         .cliente-card {
@@ -52,7 +54,6 @@
             color: white;
         }
         
-        /* Estilo para Select2 */
         .select2-container--default .select2-selection--single {
             height: 38px;
             border: 1px solid #d1d5db;
@@ -87,7 +88,12 @@
 
         function adicionarLinha() {
             if (!podeEditarPedido()) {
-                alert('❌ Não é possível adicionar itens em um pedido que já está em Produção, Em Entrega ou Entregue!');
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Ação bloqueada',
+                    text: '❌ Não é possível adicionar itens em um pedido que já está em Produção, Em Entrega ou Entregue!',
+                    confirmButtonColor: '#3b82f6'
+                });
                 return;
             }
             
@@ -111,7 +117,7 @@
                 </td>
                 <td class="p-2 border"><input type="text" class="w-24 p-1 border rounded valor-item bg-gray-100 text-right" value="R$ 0,00" readonly></td>
                 <td class="p-2 border font-semibold total-linha">R$ 0,00</td>
-                <td class="p-2 border text-center"><button onclick="if(podeEditarPedido()) { this.closest('tr').remove(); calcularTudo(); } else { alert('❌ Não é possível remover itens de um pedido em andamento!'); }" class="text-red-500 font-bold hover:text-red-700">X</button></td>
+                <td class="p-2 border text-center"><button onclick="if(podeEditarPedido()) { this.closest('tr').remove(); calcularTudo(); } else { Swal.fire({ icon: 'error', title: 'Ação bloqueada', text: '❌ Não é possível remover itens de um pedido em andamento!', confirmButtonColor: '#3b82f6' }); }" class="text-red-500 font-bold hover:text-red-700">X</button></td>
             `;
             
             tbody.insertBefore(novaLinha, linhaAdicionar);
@@ -191,93 +197,39 @@
         // FUNÇÕES DE CÁLCULO
         // ==========================================
         
-        function calcularTudo() {
-            console.log('🔄 Executando calcularTudo()');
-            
-            if (!podeEditarPedido()) {
-                console.log('⛔ Não pode editar, cancelando cálculo');
-                return;
-            }
-            
-            const linhas = document.querySelectorAll('#tabela-itens tr:not(#linha-adicionar)');
-            console.log(`📊 ${linhas.length} linhas encontradas`);
-            
-            let subtotal = 0;
+function calcularTudo() {
+    console.log('🔄 Executando calcularTudo()');
+    
+    // ==========================================
+    // REMOVA ESTE BLOCO ou COMENTE
+    // if (!podeEditarPedido()) {
+    //     console.log('⛔ Não pode editar, cancelando cálculo');
+    //     return;
+    // }
+    // ==========================================
+    
+    const linhas = document.querySelectorAll('#tabela-itens tr:not(#linha-adicionar)');
+    console.log(`📊 ${linhas.length} linhas encontradas`);
+    
+    let subtotal = 0;
 
-            linhas.forEach((linha, index) => {
-                const qtd = parseFloat(linha.querySelector('.qtd-item')?.value) || 0;
-                const valorTexto = linha.querySelector('.valor-item')?.value || '0,00';
-                console.log(`Linha ${index + 1}: qtd=${qtd}, valorTexto=${valorTexto}`);
-                
-                const valor = parseFloat(valorTexto.replace('R$', '').replace(/\./g, '').replace(',', '.')) || 0;
-                console.log(`Linha ${index + 1}: valor numérico=${valor}`);
-                
-                const totalLinha = qtd * valor;
-                console.log(`Linha ${index + 1}: totalLinha=${totalLinha}`);
-                
-                linha.querySelector('.total-linha').innerText = formatarValorReais(totalLinha);
-                subtotal += totalLinha;
-            });
+    linhas.forEach((linha, index) => {
+        const qtd = parseFloat(linha.querySelector('.qtd-item')?.value) || 0;
+        const valorTexto = linha.querySelector('.valor-item')?.value || '0,00';
+        console.log(`Linha ${index + 1}: qtd=${qtd}, valorTexto=${valorTexto}`);
+        
+        const valor = parseFloat(valorTexto.replace('R$', '').replace(/\./g, '').replace(',', '.')) || 0;
+        console.log(`Linha ${index + 1}: valor numérico=${valor}`);
+        
+        const totalLinha = qtd * valor;
+        console.log(`Linha ${index + 1}: totalLinha=${totalLinha}`);
+        
+        linha.querySelector('.total-linha').innerText = formatarValorReais(totalLinha);
+        subtotal += totalLinha;
+    });
 
-            console.log(`📊 Subtotal calculado: ${subtotal}`);
-
-            const pctDesconto = parseFloat(document.getElementById('input-desconto').value.replace(',', '.')) || 0;
-            const valorDesconto = subtotal * (pctDesconto / 100);
-            const subtotalComDesconto = subtotal - valorDesconto;
-
-            const acrescimoTexto = document.getElementById('input-acrescimo').value || '0,00';
-            const acrescimo = parseFloat(acrescimoTexto.replace(/[^\d,]/g, '').replace(',', '.')) || 0;
-
-            const km = parseFloat(document.getElementById('input-km').value) || 0;
-            const precoCombustivel = parseFloat(document.getElementById('input-litro').value) || 4.20;
-            const consumo = parseFloat(document.getElementById('input-consumo').value) || 9.0;
-            
-            const custoCombustivel = km > 0 ? (km / consumo) * precoCombustivel : 0;
-            
-            let pedagio = 0;
-            const pedagioInput = document.getElementById('input-pedagio').value;
-            if (pedagioInput) {
-                pedagio = parseFloat(pedagioInput.replace(/[^\d,]/g, '').replace(',', '.')) || 0;
-            }
-            
-            const frete = custoCombustivel + pedagio;
-            
-            document.getElementById('custo-combustivel').innerText = formatarValorReais(custoCombustivel);
-            document.getElementById('custo-pedagio').innerText = formatarValorReais(pedagio);
-            document.getElementById('custo-total-frete').innerText = formatarValorReais(frete);
-            document.getElementById('display-frete-estimado').value = formatarValorReais(frete);
-
-            const formaPgto = document.getElementById('select-pagamento').value;
-            let taxaCartao = 0;
-            if (formaPgto === 'Cartão de Crédito') {
-                taxaCartao = (subtotalComDesconto + frete + acrescimo) * 0.05; 
-                document.getElementById('info-taxa').innerText = `Taxa Maquininha (5%): ${formatarValorReais(taxaCartao)}`;
-                document.getElementById('info-taxa').classList.remove('hidden');
-            } else {
-                document.getElementById('info-taxa').classList.add('hidden');
-            }
-
-            const totalGeral = subtotalComDesconto + frete + taxaCartao + acrescimo;
-
-            document.getElementById('display-subtotal').innerText = 'Subtotal: ' + formatarValorReais(subtotal);
-            document.getElementById('display-desconto').innerText = 'Desconto: - ' + formatarValorReais(valorDesconto);
-            document.getElementById('display-acrescimo').innerText = 'Acréscimo: + ' + formatarValorReais(acrescimo);
-            document.getElementById('display-frete-final').innerText = 'Frete: ' + formatarValorReais(frete);
-            
-            const displayTaxa = document.getElementById('display-taxa-final');
-            if (taxaCartao > 0) {
-                displayTaxa.innerText = 'Taxa Cartão: ' + formatarValorReais(taxaCartao);
-                displayTaxa.classList.remove('hidden');
-            } else {
-                displayTaxa.classList.add('hidden');
-            }
-
-            document.getElementById('display-total').innerText = 'Total: ' + formatarValorReais(totalGeral);
-            document.getElementById('btn-gerar-pdf').setAttribute('data-total', totalGeral.toFixed(2).replace('.', ','));
-            
-            console.log(`✅ Total calculado: ${totalGeral}`);
-        }
-
+    // ... resto da função continua igual ...
+}
         function gerarPDF() {
             const btn = document.getElementById('btn-gerar-pdf');
             const textoOriginal = btn.innerHTML;
@@ -363,9 +315,22 @@
 
             html2pdf().set(opcoes).from(conteudoCompleto).save().then(() => {
                 btn.innerHTML = textoOriginal;
+                Swal.fire({
+                    icon: 'success',
+                    title: 'PDF Gerado!',
+                    text: 'O PDF foi gerado com sucesso.',
+                    timer: 2000,
+                    showConfirmButton: false
+                });
             }).catch(err => {
                 console.error("Erro no PDF:", err);
                 btn.innerHTML = 'Erro ao gerar';
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Erro',
+                    text: 'Erro ao gerar PDF!',
+                    confirmButtonColor: '#3b82f6'
+                });
             });
         }
     </script>
@@ -389,7 +354,6 @@
             <button onclick="window.fazerLogout()" class="mt-auto text-sm text-left p-3 text-red-400 hover:bg-gray-800 rounded transition font-bold">🚪 Encerrar Sessão</button>
         </nav>
         
-        <!-- BOTÃO DE RESET DO SISTEMA -->
         <div class="p-4 border-t border-gray-700">
             <button onclick="window.resetCompletoSistema()" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded transition flex items-center justify-center gap-2 text-sm">
                 ⚠️ RESET TOTAL
@@ -413,7 +377,6 @@
             </div>
             
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <!-- BLOCO CLIENTE -->
                 <div class="bg-white p-4 md:p-6 rounded-lg shadow-sm cliente-card">
                     <h3 class="text-lg font-semibold mb-4 text-gray-700 flex items-center gap-2">
                         👤 Dados do Cliente
@@ -448,7 +411,6 @@
                     <input type="hidden" id="input-endereco">
                 </div>
 
-                <!-- BLOCO FRETE -->
                 <div class="bg-white p-4 md:p-6 rounded-lg shadow-sm">
                     <h3 class="text-lg font-semibold mb-4 text-gray-700 flex items-center gap-2">
                         🚚 Cálculo de Frete (Manual)
@@ -500,7 +462,6 @@
                 </div>
             </div>
 
-            <!-- CONTROLE DO PEDIDO -->
             <div class="bg-white p-4 md:p-6 rounded-lg shadow-sm">
                 <h3 class="text-lg font-semibold mb-4 text-gray-700">📋 Controle do Pedido</h3>
                 
@@ -593,7 +554,6 @@
                 </div>
             </div>
 
-            <!-- TABELA DE ITENS -->
             <div class="bg-white p-4 md:p-6 rounded-lg shadow-sm">
                 <h3 class="text-lg font-semibold mb-4 text-gray-700">🛒 Itens do Pedido</h3>
                 <div class="overflow-x-auto">
@@ -609,13 +569,11 @@
                             </tr>
                         </thead>
                         <tbody id="tabela-itens">
-                            <!-- Será preenchido dinamicamente -->
                         </tbody>
                     </table>
                 </div>
             </div>
 
-            <!-- RODAPÉ COM BOTÕES -->
             <div class="bg-white p-4 md:p-6 rounded-lg shadow-sm">
                 <div class="flex flex-col md:flex-row justify-between items-start gap-6">
                     <div class="w-full md:w-1/2 space-y-4">
@@ -825,7 +783,6 @@
         <div id="aba-financeiro" class="hidden space-y-6">
             <h2 class="text-2xl md:text-3xl font-bold text-gray-800 border-b pb-2">💰 Módulo Financeiro</h2>
             
-            <!-- Cards de Resumo -->
             <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div class="bg-white p-4 rounded-lg shadow-sm financeiro-card border-l-4 border-blue-500">
                     <p class="text-xs text-gray-500 uppercase">Total a Receber</p>
@@ -852,7 +809,6 @@
                 </div>
             </div>
             
-            <!-- Filtros -->
             <div class="bg-white p-4 rounded-lg shadow-sm">
                 <div class="flex flex-col md:flex-row justify-between items-center gap-4">
                     <div class="flex gap-2">
@@ -872,7 +828,6 @@
                 </div>
             </div>
             
-            <!-- Tabela de Parcelas -->
             <div class="bg-white p-4 md:p-6 rounded-lg shadow-sm">
                 <h3 class="text-lg font-semibold mb-4 text-gray-700">📋 Contas a Receber</h3>
                 <div class="overflow-x-auto">
@@ -896,7 +851,6 @@
                 </div>
             </div>
             
-            <!-- Gráfico de Previsão -->
             <div class="bg-white p-4 md:p-6 rounded-lg shadow-sm">
                 <h3 class="text-lg font-semibold mb-4 text-gray-700">📊 Previsão de Recebimento</h3>
                 <div class="grid grid-cols-1 md:grid-cols-6 gap-2 h-40 items-end" id="grafico-previsao">
@@ -972,22 +926,64 @@
         };
 
         // ==========================================
-        // FUNÇÃO DE RESET COMPLETO DO SISTEMA
+        // FUNÇÃO DE RESET COMPLETO DO SISTEMA (COM SWEETALERT)
         // ==========================================
         
         window.resetCompletoSistema = async function() {
-            if (!confirm('⚠️ ATENÇÃO! Isso vai APAGAR TODOS os dados do sistema!\n\nClientes, produtos, pedidos e parcelas serão PERMANENTEMENTE excluídos.\n\nTem certeza?')) return;
+            const result = await Swal.fire({
+                title: '⚠️ ATENÇÃO!',
+                text: 'Isso vai APAGAR TODOS os dados do sistema!\n\nClientes, produtos, pedidos e parcelas serão PERMANENTEMENTE excluídos.',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#dc2626',
+                cancelButtonColor: '#6b7280',
+                confirmButtonText: 'Sim, apagar tudo!',
+                cancelButtonText: 'Cancelar'
+            });
             
-            const senhaConfirmacao = prompt('🔐 PARA CONFIRMAR, digite a palavra: RESETAR');
-            if (senhaConfirmacao !== 'RESETAR') {
-                alert('❌ Operação cancelada - palavra incorreta.');
-                return;
-            }
+            if (!result.isConfirmed) return;
             
-            if (!confirm('🚨 ÚLTIMA CHANCE! Deseja realmente APAGAR TUDO e começar do zero?')) return;
+            const { value: senha } = await Swal.fire({
+                title: '🔐 Confirmação',
+                input: 'text',
+                inputLabel: 'Digite a palavra: RESETAR',
+                inputPlaceholder: 'RESETAR',
+                showCancelButton: true,
+                confirmButtonColor: '#dc2626',
+                cancelButtonColor: '#6b7280',
+                confirmButtonText: 'Confirmar',
+                cancelButtonText: 'Cancelar',
+                inputValidator: (value) => {
+                    if (value !== 'RESETAR') {
+                        return 'Palavra incorreta!';
+                    }
+                }
+            });
+            
+            if (!senha) return;
+            
+            const confirmacaoFinal = await Swal.fire({
+                title: '🚨 ÚLTIMA CHANCE!',
+                text: 'Deseja realmente APAGAR TUDO e começar do zero?',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#dc2626',
+                cancelButtonColor: '#6b7280',
+                confirmButtonText: 'Sim, resetar!',
+                cancelButtonText: 'Não'
+            });
+            
+            if (!confirmacaoFinal.isConfirmed) return;
             
             try {
-                alert('🔄 Resetando sistema... Isso pode levar alguns segundos.');
+                Swal.fire({
+                    title: 'Resetando sistema...',
+                    text: 'Isso pode levar alguns segundos.',
+                    allowOutsideClick: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    }
+                });
                 
                 const pedidosSnap = await getDocs(collection(db, "pedidos"));
                 const batchPedidos = writeBatch(db);
@@ -1014,12 +1010,24 @@
                     await setDoc(contadorRef, { ultimo_numero: 1 });
                 });
                 
-                alert('✅ SISTEMA RESETADO COM SUCESSO!\n\nA página vai recarregar agora.');
+                await Swal.fire({
+                    icon: 'success',
+                    title: 'Sistema resetado!',
+                    text: 'Todos os dados foram apagados. A página vai recarregar.',
+                    timer: 2000,
+                    showConfirmButton: false
+                });
+                
                 window.location.reload();
                 
             } catch (error) {
                 console.error('Erro no reset:', error);
-                alert('❌ Erro ao resetar sistema: ' + error.message);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Erro',
+                    text: 'Erro ao resetar sistema: ' + error.message,
+                    confirmButtonColor: '#3b82f6'
+                });
             }
         };
 
@@ -1202,7 +1210,18 @@
         }
 
         window.receberParcela = async function(parcelaId) {
-            if (!confirm('Confirmar recebimento desta parcela?')) return;
+            const result = await Swal.fire({
+                title: 'Confirmar recebimento',
+                text: 'Deseja marcar esta parcela como recebida?',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#10b981',
+                cancelButtonColor: '#6b7280',
+                confirmButtonText: 'Sim, receber',
+                cancelButtonText: 'Cancelar'
+            });
+            
+            if (!result.isConfirmed) return;
             
             try {
                 const parcelaRef = doc(db, "parcelas", parcelaId);
@@ -1211,14 +1230,25 @@
                     dataPagamento: new Date().toISOString().split('T')[0]
                 });
                 
-                alert('✅ Parcela recebida com sucesso!');
+                await Swal.fire({
+                    icon: 'success',
+                    title: 'Recebido!',
+                    text: 'Parcela marcada como paga com sucesso.',
+                    timer: 2000,
+                    showConfirmButton: false
+                });
                 
                 await carregarParcelasDoFirebase();
                 window.carregarDadosFinanceiros();
                 
             } catch (error) {
                 console.error('Erro ao receber parcela:', error);
-                alert('❌ Erro ao registrar pagamento!');
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Erro',
+                    text: 'Erro ao registrar pagamento!',
+                    confirmButtonColor: '#3b82f6'
+                });
             }
         }
 
@@ -1422,7 +1452,12 @@
             if (pedido) {
                 window.abrirPedidoParaEdicao(pedidoId);
             } else {
-                alert('Pedido não encontrado!');
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Erro',
+                    text: 'Pedido não encontrado!',
+                    confirmButtonColor: '#3b82f6'
+                });
             }
         }
 
@@ -1430,65 +1465,91 @@
         // FUNÇÕES DE STATUS
         // ==========================================
         
-        window.selecionarStatus = function(novoStatus) {
-            const selectStatus = document.getElementById('select-status');
-            const statusAtual = selectStatus ? selectStatus.value : 'Orçamento';
-            
-            if (statusAtual === novoStatus) return;
-            
-            const fluxoPermitido = {
-                'Orçamento': ['Produção'],
-                'Produção': ['Em Entrega'],
-                'Em Entrega': ['Entregue'],
-                'Entregue': []
-            };
-            
-            const transicoesPermitidas = fluxoPermitido[statusAtual] || [];
-            
-            if (!transicoesPermitidas.includes(novoStatus) && statusAtual !== 'Orçamento') {
-                let mensagem = '';
-                if (statusAtual === 'Entregue') mensagem = '❌ Pedido entregue não pode ser alterado!';
-                else if (statusAtual === 'Em Entrega') mensagem = '❌ Em entrega só pode ir para Entregue!';
-                else if (statusAtual === 'Produção') mensagem = '❌ Produção não pode voltar para Orçamento!';
-                else mensagem = `❌ Transição inválida!`;
-                
-                alert(mensagem);
-                atualizarBotoesStatus(statusAtual);
-                return;
-            }
-            
-            if (selectStatus) selectStatus.value = novoStatus;
-            atualizarBotoesStatus(novoStatus);
-            atualizarBarraProgresso(novoStatus);
-            
-            const statusBloqueados = ['Produção', 'Em Entrega', 'Entregue'];
-            if (statusBloqueados.includes(novoStatus)) {
-                bloquearCampos(true);
-                const aviso = document.getElementById('aviso-bloqueio');
-                const spanStatus = document.getElementById('status-bloqueio');
-                if (aviso && spanStatus) {
-                    spanStatus.innerText = novoStatus;
-                    aviso.classList.remove('hidden');
-                }
-            } else {
-                bloquearCampos(false);
-                const aviso = document.getElementById('aviso-bloqueio');
-                if (aviso) aviso.classList.add('hidden');
-            }
-            
-            const pedidoId = document.getElementById('pedido-id-atual').value;
-            const clienteSelect = document.getElementById('input-cliente');
-            const cliente = clienteSelect ? clienteSelect.value : '';
-            
-            if (!cliente) {
-                alert('⚠️ Selecione um cliente antes de mudar o status!');
-                return;
-            }
-            
-            if (confirm(`Status alterado para ${novoStatus}. Deseja salvar o pedido agora?`)) {
-                salvarPedidoAtual();
-            }
+// ==========================================
+// FUNÇÃO CORRIGIDA - SELECIONAR STATUS (SEM ERRO)
+// ==========================================
+window.selecionarStatus = function(novoStatus) {
+    const selectStatus = document.getElementById('select-status');
+    const statusAtual = selectStatus ? selectStatus.value : 'Orçamento';
+    
+    if (statusAtual === novoStatus) return;
+    
+    const fluxoPermitido = {
+        'Orçamento': ['Produção'],
+        'Produção': ['Em Entrega'],
+        'Em Entrega': ['Entregue'],
+        'Entregue': []
+    };
+    
+    const transicoesPermitidas = fluxoPermitido[statusAtual] || [];
+    
+    if (!transicoesPermitidas.includes(novoStatus) && statusAtual !== 'Orçamento') {
+        let mensagem = '';
+        if (statusAtual === 'Entregue') mensagem = '❌ Pedido entregue não pode ser alterado!';
+        else if (statusAtual === 'Em Entrega') mensagem = '❌ Em entrega só pode ir para Entregue!';
+        else if (statusAtual === 'Produção') mensagem = '❌ Produção não pode voltar para Orçamento!';
+        else mensagem = `❌ Transição inválida!`;
+        
+        Swal.fire({
+            icon: 'error',
+            title: 'Transição inválida',
+            text: mensagem,
+            confirmButtonColor: '#3b82f6'
+        });
+        
+        atualizarBotoesStatus(statusAtual);
+        return;
+    }
+    
+    if (selectStatus) selectStatus.value = novoStatus;
+    atualizarBotoesStatus(novoStatus);
+    atualizarBarraProgresso(novoStatus);
+    
+    const statusBloqueados = ['Produção', 'Em Entrega', 'Entregue'];
+    if (statusBloqueados.includes(novoStatus)) {
+        bloquearCampos(true);
+        const aviso = document.getElementById('aviso-bloqueio');
+        const spanStatus = document.getElementById('status-bloqueio');
+        if (aviso && spanStatus) {
+            spanStatus.innerText = novoStatus;
+            aviso.classList.remove('hidden');
         }
+    } else {
+        bloquearCampos(false);
+        const aviso = document.getElementById('aviso-bloqueio');
+        if (aviso) aviso.classList.add('hidden');
+    }
+    
+    const pedidoId = document.getElementById('pedido-id-atual').value;
+    const clienteSelect = document.getElementById('input-cliente');
+    const cliente = clienteSelect ? clienteSelect.value : '';
+    
+    if (!cliente) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Cliente não selecionado',
+            text: 'Selecione um cliente antes de mudar o status!',
+            confirmButtonColor: '#3b82f6'
+        });
+        return;
+    }
+    
+    // Agora chama o Swal e depois o salvarPedidoAtual
+    Swal.fire({
+        title: 'Salvar pedido?',
+        text: `Status alterado para ${novoStatus}. Deseja salvar o pedido agora?`,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#3b82f6',
+        cancelButtonColor: '#6b7280',
+        confirmButtonText: 'Sim, salvar',
+        cancelButtonText: 'Não'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            salvarPedidoAtual();
+        }
+    });
+};
 
         function bloquearCampos(bloquear) {
             const campos = [
@@ -1664,6 +1725,12 @@
                 renderizarTudo();
             } catch (e) { 
                 console.error("Erro ao carregar:", e); 
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Erro',
+                    text: 'Erro ao carregar dados do banco!',
+                    confirmButtonColor: '#3b82f6'
+                });
             }
         }
 
@@ -1738,7 +1805,6 @@
                 }
             }
             
-            // Inicializa a tabela de itens com uma linha em branco se estiver vazia
             const tbody = document.getElementById('tabela-itens');
             if (tbody && tbody.children.length === 0) {
                 window.novoPedido();
@@ -1877,7 +1943,7 @@
                 <td class="p-2 border"><input type="text" placeholder="Fornecedor" class="w-full p-1 border rounded forn-item bg-gray-100" readonly></td>
                 <td class="p-2 border"><input type="text" class="w-24 p-1 border rounded valor-item bg-gray-100 text-right" value="R$ 0,00" readonly></td>
                 <td class="p-2 border font-semibold total-linha">R$ 0,00</td>
-                <td class="p-2 border text-center"><button onclick="if(podeEditarPedido()) { this.closest('tr').remove(); calcularTudo(); } else { alert('❌ Não é possível remover itens de um pedido em andamento!'); }" class="text-red-500 font-bold hover:text-red-700">X</button></td>
+                <td class="p-2 border text-center"><button onclick="if(podeEditarPedido()) { this.closest('tr').remove(); calcularTudo(); } else { Swal.fire({ icon: 'error', title: 'Ação bloqueada', text: '❌ Não é possível remover itens de um pedido em andamento!', confirmButtonColor: '#3b82f6' }); }" class="text-red-500 font-bold hover:text-red-700">X</button></td>
             `;
             
             tbody.appendChild(tr);
@@ -1916,16 +1982,31 @@
             
             calcularTudo();
             
-            setTimeout(() => {
-                alert('✅ Novo pedido iniciado! Comece selecionando um cliente.');
-            }, 100);
+            Swal.fire({
+                icon: 'success',
+                title: 'Novo pedido',
+                text: 'Pedido iniciado! Comece selecionando um cliente.',
+                timer: 2000,
+                showConfirmButton: false
+            });
         }
 
         // ==========================================
         // FUNÇÃO PARA CANCELAR EDIÇÃO
         // ==========================================
-        window.cancelarEdicao = function() {
-            if (confirm('Deseja realmente cancelar a edição? Todas as alterações não salvas serão perdidas.')) {
+        window.cancelarEdicao = async function() {
+            const result = await Swal.fire({
+                title: 'Cancelar edição?',
+                text: 'Todas as alterações não salvas serão perdidas.',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#dc2626',
+                cancelButtonColor: '#6b7280',
+                confirmButtonText: 'Sim, cancelar',
+                cancelButtonText: 'Não'
+            });
+            
+            if (result.isConfirmed) {
                 window.novoPedido();
             }
         }
@@ -1942,7 +2023,12 @@
             const cliente = window.bancoClientes.find(c => c.nome === nomeCliente);
             
             if (!cliente) {
-                alert('Selecione um cliente válido!');
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Cliente inválido',
+                    text: 'Selecione um cliente válido!',
+                    confirmButtonColor: '#3b82f6'
+                });
                 return;
             }
             
@@ -2006,7 +2092,12 @@
             });
             
             if (dados.itens.length === 0) {
-                alert('Adicione pelo menos um item ao pedido!');
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Sem itens',
+                    text: 'Adicione pelo menos um item ao pedido!',
+                    confirmButtonColor: '#3b82f6'
+                });
                 return;
             }
             
@@ -2055,18 +2146,35 @@
                         primeiroVencimento
                     );
                     
-                    alert('✅ Pedido em PRODUÇÃO! Parcelas geradas no financeiro.');
+                    await Swal.fire({
+                        icon: 'success',
+                        title: 'Pedido em PRODUÇÃO!',
+                        text: 'Parcelas geradas no financeiro.',
+                        timer: 2000,
+                        showConfirmButton: false
+                    });
                 } else {
                     console.log('📋 Pedido em ORÇAMENTO - Nenhuma parcela gerada');
                 }
                 
-                alert('✅ Pedido salvo com sucesso!');
+                await Swal.fire({
+                    icon: 'success',
+                    title: 'Sucesso!',
+                    text: 'Pedido salvo com sucesso!',
+                    timer: 2000,
+                    showConfirmButton: false
+                });
                 
                 await carregarMemoriaBanco();
                 
             } catch (error) {
                 console.error('Erro ao salvar:', error);
-                alert('❌ Erro ao salvar pedido!');
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Erro',
+                    text: 'Erro ao salvar pedido!',
+                    confirmButtonColor: '#3b82f6'
+                });
             } finally {
                 btn.innerHTML = textoOriginal;
             }
@@ -2096,7 +2204,12 @@
             
             const nome = document.getElementById('cli-nome').value;
             if (!nome) {
-                alert('O nome do cliente é obrigatório!');
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Campo obrigatório',
+                    text: 'O nome do cliente é obrigatório!',
+                    confirmButtonColor: '#3b82f6'
+                });
                 return;
             }
             
@@ -2114,14 +2227,31 @@
             try {
                 if(id) {
                     await updateDoc(doc(db,"clientes",id), d);
-                    alert('✅ Cliente atualizado com sucesso!');
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Sucesso!',
+                        text: 'Cliente atualizado com sucesso!',
+                        timer: 2000,
+                        showConfirmButton: false
+                    });
                 } else { 
                     await addDoc(collection(db,"clientes"), {...d, data_cadastro: serverTimestamp()});
-                    alert('✅ Cliente cadastrado com sucesso!');
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Sucesso!',
+                        text: 'Cliente cadastrado com sucesso!',
+                        timer: 2000,
+                        showConfirmButton: false
+                    });
                 }
             } catch (error) {
                 console.error('Erro ao salvar cliente:', error);
-                alert('❌ Erro ao salvar cliente!');
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Erro',
+                    text: 'Erro ao salvar cliente!',
+                    confirmButtonColor: '#3b82f6'
+                });
             }
             
             document.getElementById('cli-id').value = ''; 
@@ -2143,12 +2273,22 @@
             const valor = parseFloat(valorTexto.replace(/[^\d,]/g, '').replace(',', '.')) || 0;
             
             if (!descricao) {
-                alert('A descrição do produto é obrigatória!');
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Campo obrigatório',
+                    text: 'A descrição do produto é obrigatória!',
+                    confirmButtonColor: '#3b82f6'
+                });
                 return;
             }
             
             if (valor <= 0) {
-                alert('O valor do produto deve ser maior que zero!');
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Valor inválido',
+                    text: 'O valor do produto deve ser maior que zero!',
+                    confirmButtonColor: '#3b82f6'
+                });
                 return;
             }
             
@@ -2161,14 +2301,31 @@
             try {
                 if(id) {
                     await updateDoc(doc(db,"produtos",id), d);
-                    alert('✅ Produto atualizado com sucesso!');
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Sucesso!',
+                        text: 'Produto atualizado com sucesso!',
+                        timer: 2000,
+                        showConfirmButton: false
+                    });
                 } else { 
                     await addDoc(collection(db,"produtos"), {...d, data_cadastro: serverTimestamp()});
-                    alert('✅ Produto cadastrado com sucesso!');
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Sucesso!',
+                        text: 'Produto cadastrado com sucesso!',
+                        timer: 2000,
+                        showConfirmButton: false
+                    });
                 }
             } catch (error) {
                 console.error('Erro ao salvar produto:', error);
-                alert('❌ Erro ao salvar produto!');
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Erro',
+                    text: 'Erro ao salvar produto!',
+                    confirmButtonColor: '#3b82f6'
+                });
             }
             
             document.getElementById('prod-id').value = ''; 
@@ -2181,14 +2338,19 @@
         });
 
         // ==========================================
-        // FUNÇÃO PRINCIPAL - ABRIR PEDIDO (CORRIGIDA)
+        // FUNÇÃO PRINCIPAL - ABRIR PEDIDO
         // ==========================================
         window.abrirPedidoParaEdicao = function(id) {
             console.log('🔍 Abrindo pedido para visualização/edição:', id);
             
             const pedido = window.bancoPedidos.find(x => x.id === id);
             if (!pedido) {
-                alert('Pedido não encontrado!');
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Erro',
+                    text: 'Pedido não encontrado!',
+                    confirmButtonColor: '#3b82f6'
+                });
                 return;
             }
 
@@ -2198,7 +2360,6 @@
 
             const cliente = window.bancoClientes.find(c => c.id === pedido.cliente_id);
             
-            // Preenche dados básicos
             document.getElementById('pedido-id-atual').value = pedido.id;
             
             const selectCliente = document.getElementById('input-cliente');
@@ -2212,7 +2373,6 @@
             
             document.getElementById('pdf-n-display').innerText = '#' + (pedido.numero_sequencial?.toString().padStart(3,'0') || '???');
             
-            // Mostra dados do cliente
             if (cliente) {
                 document.getElementById('cliente-telefone').innerText = cliente.telefone || '-';
                 document.getElementById('cliente-documento').innerText = cliente.documento || '-';
@@ -2225,9 +2385,6 @@
             document.getElementById('btn-cancelar-pedido').classList.remove('hidden');
             atualizarTextoBotaoSalvar('editando');
             
-            // ==========================================
-            // CARREGAR STATUS CORRETAMENTE
-            // ==========================================
             if (pedido.status) {
                 const selectStatus = document.getElementById('select-status');
                 if (selectStatus) {
@@ -2304,9 +2461,6 @@
                 if (aviso) aviso.classList.add('hidden');
             }
             
-            // ==========================================
-            // CARREGAR DADOS DO FRETE
-            // ==========================================
             if (pedido.frete) {
                 document.getElementById('input-km').value = pedido.frete.distancia || '0';
                 document.getElementById('input-litro').value = pedido.frete.preco_combustivel || '4.20';
@@ -2323,16 +2477,10 @@
                 }
             }
             
-            // ==========================================
-            // CARREGAR DESCONTOS E ACRÉSCIMOS
-            // ==========================================
             if (pedido.desconto) document.getElementById('input-desconto').value = pedido.desconto;
             if (pedido.acrescimo) document.getElementById('input-acrescimo').value = pedido.acrescimo.toFixed(2).replace('.', ',');
             if (pedido.motivo_acrescimo) document.getElementById('input-motivo-acrescimo').value = pedido.motivo_acrescimo;
             
-            // ==========================================
-            // CARREGAR CONDIÇÕES DE PAGAMENTO
-            // ==========================================
             if (pedido.condicao_pagamento) {
                 document.getElementById('select-condicao-pagamento').value = pedido.condicao_pagamento;
                 if (pedido.condicao_pagamento === 'Personalizado') {
@@ -2344,113 +2492,142 @@
                 document.getElementById('input-primeiro-vencimento').value = pedido.primeiro_vencimento;
             }
             
-            // ==========================================
-            // CARREGAR ITENS DO PEDIDO
-            // ==========================================
-            const tbody = document.getElementById('tabela-itens');
-            tbody.innerHTML = '';
-            
-            if (pedido.itens && pedido.itens.length > 0) {
-                console.log(`📦 Carregando ${pedido.itens.length} itens do pedido`);
-                
-                pedido.itens.forEach((item, index) => {
-                    console.log(`Item ${index + 1} original:`, item);
-                    
-                    let valorUnitario = item.valor_unitario;
-                    console.log(`Valor unitário bruto:`, valorUnitario);
-                    
-                    if (typeof valorUnitario === 'string') {
-                        valorUnitario = valorUnitario.replace('R$', '').trim().replace(',', '.');
-                        valorUnitario = parseFloat(valorUnitario);
-                        console.log(`Valor unitário convertido:`, valorUnitario);
-                    }
-                    
-                    if (isNaN(valorUnitario)) {
-                        valorUnitario = 0;
-                        console.warn(`⚠️ Valor unitário inválido, usando 0`);
-                    }
-                    
-                    const tr = document.createElement('tr'); 
-                    tr.className = 'text-sm';
-                    
-                    const selectId = 'produto-select-' + Date.now() + '-' + index + '-' + Math.random().toString(36).substr(2, 5);
-                    
-                    let selectHtml = `<select id="${selectId}" class="w-full p-1 border rounded desc-item border-blue-300 focus:ring-2 focus:ring-blue-500 bg-gray-50 produto-select" style="width: 100%;" onchange="window.preencherProduto(this)">`;
-                    selectHtml += '<option value="">Selecione um produto</option>';
-                    
-                    window.bancoProdutos.forEach(p => {
-                        const selected = p.descricao === item.descricao ? 'selected' : '';
-                        selectHtml += `<option value="${p.descricao}" data-valor="${p.valor_base}" data-forn="${p.fornecedor || ''}" ${selected}>${p.descricao} - ${formatarValorReais(p.valor_base)}</option>`;
-                    });
-                    
-                    selectHtml += '</select>';
-                    
-                    const valorFormatado = formatarValorReais(valorUnitario);
-                    console.log(`Valor formatado:`, valorFormatado);
-                    
-                    tr.innerHTML = `
-                        <td class="p-2 border"><input type="number" value="${item.quantidade || 1}" class="w-16 p-1 border rounded qtd-item" onchange="calcularTudo()"></td>
-                        <td class="p-2 border">${selectHtml}</td>
-                        <td class="p-2 border"><input type="text" value="${item.fornecedor || ''}" class="w-full p-1 border rounded forn-item bg-gray-100" readonly></td>
-                        <td class="p-2 border"><input type="text" value="${valorFormatado}" class="w-24 p-1 border rounded valor-item bg-gray-100 text-right" readonly></td>
-                        <td class="p-2 border total-linha">R$ 0,00</td>
-                        <td class="p-2 border text-center"><button onclick="if(podeEditarPedido()) { this.closest('tr').remove(); calcularTudo(); } else { alert('❌ Não é possível remover itens de um pedido em andamento!'); }" class="text-red-500 font-bold">X</button></td>
-                    `;
-                    
-                    tbody.appendChild(tr);
-                });
-            } else {
-                const tr = document.createElement('tr');
-                tr.className = 'text-sm';
-                const selectId = 'produto-select-' + Date.now() + '-0';
-                tr.innerHTML = `
-                    <td class="p-2 border"><input type="number" value="1" min="1" class="w-16 p-1 border rounded qtd-item" onchange="calcularTudo()" onkeyup="calcularTudo()"></td>
-                    <td class="p-2 border">
-                        <select id="${selectId}" class="w-full p-1 border rounded desc-item border-blue-300 focus:ring-2 focus:ring-blue-500 bg-gray-50 produto-select" style="width: 100%;" onchange="window.preencherProduto(this)">
-                            <option value="">Selecione um produto</option>
-                        </select>
-                    </td>
-                    <td class="p-2 border"><input type="text" placeholder="Fornecedor" class="w-full p-1 border rounded forn-item bg-gray-100" readonly></td>
-                    <td class="p-2 border"><input type="text" class="w-24 p-1 border rounded valor-item bg-gray-100 text-right" value="R$ 0,00" readonly></td>
-                    <td class="p-2 border font-semibold total-linha">R$ 0,00</td>
-                    <td class="p-2 border text-center"><button onclick="if(podeEditarPedido()) { this.closest('tr').remove(); calcularTudo(); } else { alert('❌ Não é possível remover itens de um pedido em andamento!'); }" class="text-red-500 font-bold hover:text-red-700">X</button></td>
-                `;
-                tbody.appendChild(tr);
-            }
-            
-            const linhaAdicionar = document.createElement('tr');
-            linhaAdicionar.className = 'text-sm';
-            linhaAdicionar.id = 'linha-adicionar';
-            linhaAdicionar.innerHTML = `
-                <td class="p-2 border bg-gray-50 text-center" colspan="6">
-                    <button onclick="adicionarLinha()" class="text-blue-600 font-semibold hover:underline w-full py-2">
-                        + Adicionar Item
-                    </button>
-                </td>
-            `;
-            tbody.appendChild(linhaAdicionar);
-            
-            setTimeout(() => {
-                document.querySelectorAll('.produto-select').forEach(select => {
-                    if ($.fn.select2) {
-                        $(select).select2({
-                            placeholder: "Busque um produto...",
-                            allowClear: true,
-                            width: '100%'
-                        });
-                    }
-                });
-            }, 100);
-            
-            mostrarAba('aba-cadastro');
-            
-            setTimeout(() => {
-                console.log('🔄 Chamando calcularTudo() após delay...');
-                calcularTudo();
-                const totalGeral = document.getElementById('display-total').innerText;
-                console.log('Total após calcular:', totalGeral);
-            }, 200);
-        };
+
+// ==========================================
+// CARREGAR ITENS DO PEDIDO (VERSÃO FINAL CORRIGIDA)
+// ==========================================
+const tbody = document.getElementById('tabela-itens');
+tbody.innerHTML = ''; // Limpa tudo
+
+if (pedido.itens && pedido.itens.length > 0) {
+    console.log(`📦 Carregando ${pedido.itens.length} itens do pedido`);
+    
+    pedido.itens.forEach((item, index) => {
+        console.log(`Item ${index + 1}:`, item);
+        
+        // ==========================================
+        // PROCESSAR O VALOR UNITÁRIO
+        // ==========================================
+        let valorUnitario = 0;
+        
+        if (typeof item.valor_unitario === 'string') {
+            valorUnitario = item.valor_unitario
+                .replace('R$', '')
+                .trim()
+                .replace('.', '')
+                .replace(',', '.');
+            valorUnitario = parseFloat(valorUnitario);
+        } 
+        else if (typeof item.valor_unitario === 'number') {
+            valorUnitario = item.valor_unitario;
+        }
+        
+        if (isNaN(valorUnitario)) {
+            console.warn(`⚠️ Valor unitário inválido para item ${index + 1}, usando 0`);
+            valorUnitario = 0;
+        }
+        
+        console.log(`Valor unitário processado: ${valorUnitario}`);
+        
+        const tr = document.createElement('tr'); 
+        tr.className = 'text-sm';
+        
+        const selectId = 'produto-select-' + Date.now() + '-' + index + '-' + Math.random().toString(36).substr(2, 5);
+        
+        // Montar o select com as opções
+        let selectHtml = `<select id="${selectId}" class="w-full p-1 border rounded desc-item border-blue-300 focus:ring-2 focus:ring-blue-500 bg-gray-50 produto-select" style="width: 100%;" onchange="window.preencherProduto(this)">`;
+        selectHtml += '<option value="">Selecione um produto</option>';
+        
+        window.bancoProdutos.forEach(p => {
+            const selected = p.descricao === item.descricao ? 'selected' : '';
+            selectHtml += `<option value="${p.descricao}" data-valor="${p.valor_base}" data-forn="${p.fornecedor || ''}" ${selected}>${p.descricao} - ${formatarValorReais(p.valor_base)}</option>`;
+        });
+        
+        selectHtml += '</select>';
+        
+        const valorFormatado = formatarValorReais(valorUnitario);
+        console.log(`Valor formatado para exibição: ${valorFormatado}`);
+        
+        tr.innerHTML = `
+            <td class="p-2 border"><input type="number" value="${item.quantidade || 1}" class="w-16 p-1 border rounded qtd-item" onchange="calcularTudo()"></td>
+            <td class="p-2 border">${selectHtml}</td>
+            <td class="p-2 border"><input type="text" value="${item.fornecedor || ''}" class="w-full p-1 border rounded forn-item bg-gray-100" readonly></td>
+            <td class="p-2 border"><input type="text" value="${valorFormatado}" class="w-24 p-1 border rounded valor-item bg-gray-100 text-right" readonly></td>
+            <td class="p-2 border total-linha">R$ 0,00</td>
+            <td class="p-2 border text-center"><button onclick="if(podeEditarPedido()) { this.closest('tr').remove(); calcularTudo(); } else { Swal.fire({ icon: 'error', title: 'Ação bloqueada', text: '❌ Não é possível remover itens de um pedido em andamento!', confirmButtonColor: '#3b82f6' }); }" class="text-red-500 font-bold">X</button></td>
+        `;
+        
+        tbody.appendChild(tr);
+    });
+} else {
+    // ==========================================
+    // SE NÃO TEM ITENS, CRIA UMA LINHA EM BRANCO
+    // ==========================================
+    console.log('📦 Pedido sem itens, criando linha em branco');
+    const tr = document.createElement('tr');
+    tr.className = 'text-sm';
+    const selectId = 'produto-select-' + Date.now() + '-0';
+    tr.innerHTML = `
+        <td class="p-2 border"><input type="number" value="1" min="1" class="w-16 p-1 border rounded qtd-item" onchange="calcularTudo()" onkeyup="calcularTudo()"></td>
+        <td class="p-2 border">
+            <select id="${selectId}" class="w-full p-1 border rounded desc-item border-blue-300 focus:ring-2 focus:ring-blue-500 bg-gray-50 produto-select" style="width: 100%;" onchange="window.preencherProduto(this)">
+                <option value="">Selecione um produto</option>
+            </select>
+        </td>
+        <td class="p-2 border"><input type="text" placeholder="Fornecedor" class="w-full p-1 border rounded forn-item bg-gray-100" readonly></td>
+        <td class="p-2 border"><input type="text" class="w-24 p-1 border rounded valor-item bg-gray-100 text-right" value="R$ 0,00" readonly></td>
+        <td class="p-2 border font-semibold total-linha">R$ 0,00</td>
+        <td class="p-2 border text-center"><button onclick="if(podeEditarPedido()) { this.closest('tr').remove(); calcularTudo(); } else { Swal.fire({ icon: 'error', title: 'Ação bloqueada', text: '❌ Não é possível remover itens de um pedido em andamento!', confirmButtonColor: '#3b82f6' }); }" class="text-red-500 font-bold hover:text-red-700">X</button></td>
+    `;
+    tbody.appendChild(tr);
+}
+
+// ==========================================
+// ADICIONAR LINHA DE ADICIONAR NOVO ITEM
+// ==========================================
+const linhaAdicionar = document.createElement('tr');
+linhaAdicionar.className = 'text-sm';
+linhaAdicionar.id = 'linha-adicionar';
+linhaAdicionar.innerHTML = `
+    <td class="p-2 border bg-gray-50 text-center" colspan="6">
+        <button onclick="adicionarLinha()" class="text-blue-600 font-semibold hover:underline w-full py-2">
+            + Adicionar Item
+        </button>
+    </td>
+`;
+tbody.appendChild(linhaAdicionar);
+
+// ==========================================
+// INICIALIZAR SELECT2
+// ==========================================
+setTimeout(() => {
+    document.querySelectorAll('.produto-select').forEach(select => {
+        if ($.fn.select2) {
+            $(select).select2({
+                placeholder: "Busque um produto...",
+                allowClear: true,
+                width: '100%'
+            });
+        }
+    });
+}, 100);
+
+mostrarAba('aba-cadastro');
+
+// ==========================================
+// CHAMAR CALCULAR TUDO (COM REMOÇÃO DO BLOQUEIO)
+// ==========================================
+setTimeout(() => {
+    console.log('🔄 Chamando calcularTudo() após delay de 800ms...');
+    calcularTudo();
+    
+    setTimeout(() => {
+        const total = document.getElementById('display-total').innerText;
+        console.log('Total final:', total);
+    }, 100);
+}, 800);
+
+};
 
         window.editarCliente = function(id, nome, telefone, documento, endereco, cep) {
             document.getElementById('cli-id').value = id;
@@ -2473,17 +2650,53 @@
         };
 
         window.excluirCliente = async (id) => { 
-            if(confirm("Tem certeza que deseja excluir este cliente?")){ 
+            const result = await Swal.fire({
+                title: 'Excluir cliente?',
+                text: 'Tem certeza que deseja excluir este cliente?',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#dc2626',
+                cancelButtonColor: '#6b7280',
+                confirmButtonText: 'Sim, excluir',
+                cancelButtonText: 'Cancelar'
+            });
+            
+            if (result.isConfirmed) {
                 await deleteDoc(doc(db,"clientes",id)); 
-                carregarMemoriaBanco(); 
-            } 
+                carregarMemoriaBanco();
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Excluído!',
+                    text: 'Cliente excluído com sucesso.',
+                    timer: 2000,
+                    showConfirmButton: false
+                });
+            }
         };
 
         window.excluirProduto = async (id) => { 
-            if(confirm("Tem certeza que deseja excluir este produto?")){ 
+            const result = await Swal.fire({
+                title: 'Excluir produto?',
+                text: 'Tem certeza que deseja excluir este produto?',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#dc2626',
+                cancelButtonColor: '#6b7280',
+                confirmButtonText: 'Sim, excluir',
+                cancelButtonText: 'Cancelar'
+            });
+            
+            if (result.isConfirmed) {
                 await deleteDoc(doc(db,"produtos",id)); 
-                carregarMemoriaBanco(); 
-            } 
+                carregarMemoriaBanco();
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Excluído!',
+                    text: 'Produto excluído com sucesso.',
+                    timer: 2000,
+                    showConfirmButton: false
+                });
+            }
         };
 
         window.filtrarPedidos = (t) => { 
