@@ -5,10 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MPLEÃO - Gestão de Pedidos</title>
     
-    <!-- Tailwind CSS via CDN (funciona sem precisar de build) -->
+    <!-- Tailwind CSS via CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- Estilos personalizados (mesma pasta do HTML) -->
+    <!-- Estilos personalizados -->
     <link href="styles.css" rel="stylesheet">
     
     <!-- Select2 -->
@@ -22,11 +22,11 @@
     <!-- html2pdf -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     
-    <!-- Scripts do sistema (mesma pasta do HTML) -->
+    <!-- Scripts do sistema -->
     <script src="scripts.js"></script>
     
     <style>
-        /* Estilos adicionais que não dependem do Tailwind */
+        /* Estilos adicionais */
         .cliente-card {
             background: linear-gradient(to right, #f9fafb, #ffffff);
             border-left: 4px solid #3b82f6;
@@ -76,6 +76,44 @@
         }
         .select2-container--default .select2-selection--single .select2-selection__arrow {
             height: 36px;
+        }
+        
+        /* Estilo para os cards de produtos no modal */
+        .produto-card {
+            border: 1px solid #e5e7eb;
+            transition: all 0.2s;
+        }
+        .produto-card:hover {
+            border-color: #3b82f6;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+        .produto-card.selecionado {
+            background-color: #eff6ff;
+            border-color: #3b82f6;
+            border-width: 2px;
+        }
+        
+        /* Checkbox personalizado */
+        .checkbox-produto {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+            accent-color: #3b82f6;
+        }
+        
+        /* Scrollbar personalizada */
+        .overflow-y-auto::-webkit-scrollbar {
+            width: 8px;
+        }
+        .overflow-y-auto::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        .overflow-y-auto::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        .overflow-y-auto::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
         }
     </style>
 </head>
@@ -161,7 +199,6 @@
                     </h3>
                     
                     <div class="flex flex-wrap items-end gap-2">
-                        <!-- Inputs -->
                         <div class="flex flex-wrap gap-2 flex-1 min-w-[300px]">
                             <div class="w-20">
                                 <label class="text-xs text-gray-500 mb-1 block">📏 KM</label>
@@ -184,7 +221,6 @@
                             </div>
                         </div>
                         
-                        <!-- Resultados -->
                         <div class="bg-blue-50 p-2 rounded-lg border border-blue-200 w-[250px]">
                             <div class="grid grid-cols-3 gap-1">
                                 <div class="text-center">
@@ -302,7 +338,12 @@
 
             <!-- TABELA DE ITENS -->
             <div class="bg-white p-4 md:p-6 rounded-lg shadow-sm">
-                <h3 class="text-lg font-semibold mb-4 text-gray-700">🛒 Itens do Pedido</h3>
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-semibold text-gray-700">🛒 Itens do Pedido</h3>
+                    <button onclick="window.abrirModalItens()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition text-sm font-bold flex items-center gap-2">
+                        ➕ Adicionar Itens
+                    </button>
+                </div>
                 <div class="overflow-x-auto">
                     <table class="w-full text-left border-collapse min-w-[600px]">
                         <thead>
@@ -316,6 +357,11 @@
                             </tr>
                         </thead>
                         <tbody id="tabela-itens">
+                            <tr>
+                                <td colspan="6" class="p-4 text-center text-gray-500">
+                                    Nenhum item adicionado. Clique em "Adicionar Itens" para começar.
+                                </td>
+                            </tr>
                         </tbody>
                     </table>
                 </div>
@@ -633,9 +679,49 @@
                 </div>
             </div>
         </div>
+        
+        <!-- MODAL DE ADICIONAR ITENS -->
+        <div id="modal-itens" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden flex items-center justify-center z-50">
+            <div class="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[80vh] overflow-hidden">
+                <div class="p-4 bg-gray-50 border-b flex justify-between items-center">
+                    <h3 class="text-lg font-semibold text-gray-800">➕ Adicionar Itens ao Pedido</h3>
+                    <button onclick="fecharModalItens()" class="text-gray-500 hover:text-gray-700">
+                        <span class="text-2xl">&times;</span>
+                    </button>
+                </div>
+                
+                <div class="p-4 overflow-y-auto" style="max-height: calc(80vh - 120px);">
+                    <!-- Campo de busca -->
+                    <div class="mb-4">
+                        <input type="text" id="busca-produtos-modal" placeholder="🔍 Buscar produtos..." class="w-full p-2 border rounded border-gray-300 text-sm outline-none focus:border-blue-500" onkeyup="window.filtrarProdutosModal(this.value)">
+                    </div>
+                    
+                    <!-- Lista de produtos disponíveis -->
+                    <div id="lista-produtos-modal" class="space-y-2">
+                        <!-- Os produtos serão inseridos aqui via JavaScript -->
+                        <p class="text-center text-gray-500 py-4">Carregando produtos...</p>
+                    </div>
+                </div>
+                
+                <div class="p-4 bg-gray-50 border-t flex justify-between items-center">
+                    <div>
+                        <span id="total-produtos-selecionados" class="text-sm text-gray-600">0 produtos selecionados</span>
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="fecharModalItens()" class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 transition">
+                            Cancelar
+                        </button>
+                        <button onclick="adicionarProdutosSelecionados()" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition">
+                            Adicionar ao Pedido
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
     </main>
 
-    <!-- Firebase (módulo) - mesmo diretório -->
+    <!-- Firebase (módulo) -->
     <script type="module" src="firebase.js"></script>
 </body>
 </html>
