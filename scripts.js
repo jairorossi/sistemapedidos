@@ -1459,6 +1459,42 @@ function gerarPDF() {
     });
 }
 
+document.addEventListener('keydown', function(e) {
+    // Verifica se o usuário pressionou Enter (tecla 13)
+    if (e.key === 'Enter' || e.keyCode === 13) {
+        // Seleciona o elemento que está com o foco no momento
+        const activeEl = document.activeElement;
+        
+        // Verifica se o foco está dentro da aba de clientes
+        const abaClientes = document.getElementById('aba-clientes');
+        if (abaClientes && abaClientes.contains(activeEl)) {
+            
+            // Impedir que o Enter salve o formulário antes da hora
+            if (activeEl.tagName === 'INPUT' || activeEl.tagName === 'SELECT') {
+                e.preventDefault();
+                
+                // Lista de IDs na ordem que você quer que o Enter percorra
+                const ordemCampos = [
+                    'cli-nome', 'cli-telefone', 'cli-documento', 'cli-email', 
+                    'cli-cep', 'cli-endereco', 'cli-nascimento', 'cli-limite', 'cli-obs'
+                ];
+                
+                const currentIndex = ordemCampos.indexOf(activeEl.id);
+                
+                if (currentIndex > -1 && currentIndex < ordemCampos.length - 1) {
+                    const nextField = document.getElementById(ordemCampos[currentIndex + 1]);
+                    if (nextField) {
+                        nextField.focus(); // Pula para o próximo campo
+                    }
+                } else if (currentIndex === ordemCampos.length - 1) {
+                    // Se estiver no último campo (observações), foca no botão salvar
+                    document.getElementById('btn-salvar-cliente').focus();
+                }
+            }
+        }
+    }
+});
+
 // ==========================================
 // EXPORTA FUNÇÕES PARA USO GLOBAL
 // ==========================================

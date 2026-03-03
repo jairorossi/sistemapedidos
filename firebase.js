@@ -19,8 +19,14 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
 
-// CONFIGURAÇÃO DE SEGURANÇA: Login expira ao fechar o navegador
-setPersistence(auth, browserSessionPersistence);
+// SEGURANÇA: Configura o login para expirar ao fechar o navegador
+setPersistence(auth, browserSessionPersistence)
+    .then(() => {
+        console.log("🔐 Segurança: Sessão limitada ao navegador.");
+    })
+    .catch((error) => {
+        console.error("Erro na persistência:", error);
+    });
 
 // ==========================================
 // EXPORTA FUNÇÕES DO FIREBASE PARA USO GLOBAL
@@ -64,6 +70,42 @@ window.bancoClientes = [];
 window.bancoProdutos = []; 
 window.bancoPedidos = [];
 window.bancoParcelas = [];
+
+// ==========================================
+// FUNÇÃO DE VERIFICAÇÃO DE LIMITE DE CRÉDITO
+// ==========================================
+window.verificarLimiteCredito = function(clienteNome, valorNovoPedido) {
+    const cliente = window.bancoClientes.find(c => c.nome === clienteNome);
+    if (!cliente || !cliente.limite || parseFloat(cliente.limite) <= 0) return true;
+
+    const limiteMaximo = parseFloat(cliente.limite);
+    
+    // Soma parcelas pendentes do cliente carregadas na memória
+    const debitoPendente = window.bancoParcelas
+        .filter(p => p.cliente === clienteNome && p.status === 'pendente')
+        .reduce((total, p) => total + (parseFloat(p.valor) || 0), 0);
+
+    const totalAcumulado = debitoPendente + valorNovoPedido;
+
+    if (totalAcumulado > limiteMaximo) {
+        Swal.fire({
+            icon: 'error',
+            title: 'Limite de Crédito Excedido',
+            html: `
+                <div class="text-left text-sm">
+                    <p>O cliente <b>${clienteNome}</b> atingiu o limite.</p>
+                    <p>Limite total: ${window.formatarValorReais(limiteMaximo)}</p>
+                    <p>Débito atual pendente: ${window.formatarValorReais(debitoPendente)}</p>
+                    <hr class="my-2">
+                    <p class="text-red-600 font-bold">Total com este pedido: ${window.formatarValorReais(totalAcumulado)}</p>
+                </div>
+            `,
+            confirmButtonColor: '#ef4444'
+        });
+        return false;
+    }
+    return true;
+};
 
 // ==========================================
 // FUNÇÕES DE CEP
@@ -161,10 +203,9 @@ window.preencherProduto = function(select) {
     const fornItem = tr.querySelector('.forn-item');
     const spanCodigo = tr.querySelector('.codigo-badge');
     
-    // Atualiza o código na tabela ao selecionar um produto
     const produtoEncontrado = window.bancoProdutos.find(p => p.descricao === selectedOption.value);
     if (spanCodigo) spanCodigo.innerText = produtoEncontrado ? produtoEncontrado.codigo : '---';
-    
+
     if (valorItem) {
         valorItem.value = window.formatarValorReais(parseFloat(valor));
     }
@@ -831,7 +872,6 @@ function renderizarTudo() {
         }
     }
     
-    // ATUALIZAÇÃO: Datalists de sugestão
     const dlCli = document.getElementById('lista-sugestao-clientes');
     if(dlCli) dlCli.innerHTML = window.bancoClientes.map(c => `<option value="${c.nome}">`).join('');
     
@@ -839,8 +879,25 @@ function renderizarTudo() {
     if(dlProd) dlProd.innerHTML = window.bancoProdutos.map(p => `<option value="${p.descricao}">`).join('');
 }
 
+function renderizarTabelaPedidosNoFilter(lista) {
+    document.getElementById('tabela-pedidos').innerHTML = lista.map(p => `
+        <tr class="border-b text-sm hover:bg-gray-50">
+            <td class="p-2 border-r font-bold">#${p.numero_sequencial?.toString().padStart(3,'0') || 'S/N'}</td>
+            <td class="p-2 border-r">${p.data_criacao ? new Date(p.data_criacao.seconds*1000).toLocaleDateString() : '-'}</td>
+            <td class="p-2 border-r">${p.cliente_nome}</td>
+            <td class="p-2 border-r">${gerarBadgeStatus(p.status)}</td>
+            <td class="p-2 border-r">${window.formatarValorReais(p.valor_total)}</td>
+            <td class="p-2 border-r">${p.condicao_pagamento || 'Vista'}</td>
+            <td class="p-2 text-center">
+                <button onclick="window.abrirPedidoParaEdicao('${p.id}')" class="btn btn-dark btn-sm">
+                    👁️ Abrir
+                </button>
+            </td>
+        </tr>`).join('');
+}
+
 // ==========================================
-// FUNÇÃO PARA NOVO PEDIDO (INICIA LIMPO)
+// FUNÇÃO PARA NOVO PEDIDO (VERSÃO CORRIGIDA: INICIA LIMPO)
 // ==========================================
 window.novoPedido = function() {
     console.log('➕ Iniciando novo pedido - reset completo');
@@ -866,7 +923,6 @@ window.novoPedido = function() {
     const btnSalvar = document.getElementById('btn-salvar');
     btnSalvar.innerHTML = '📦 Salvar Pedido';
     
-    // ATUALIZAÇÃO: Tabela inicia totalmente vazia para evitar linhas sem dados
     const tbody = document.getElementById('tabela-itens');
     tbody.innerHTML = '<tr><td colspan="7" class="p-4 text-center text-gray-500 italic">Tabela vazia. Use o botão azul para adicionar produtos.</td></tr>';
     
@@ -895,7 +951,7 @@ window.cancelarEdicao = async function() {
 };
 
 // ==========================================
-// FUNÇÃO PARA SALVAR PEDIDO
+// FUNÇÃO PARA SALVAR PEDIDO (COM TRAVA DE LIMITE)
 // ==========================================
 async function salvarPedidoAtual() {
     console.log('💾 Iniciando salvamento do pedido...');
@@ -921,15 +977,20 @@ async function salvarPedidoAtual() {
     }
     
     const statusAtual = document.getElementById('select-status')?.value || 'Orçamento';
-    const totalGeral = parseFloat(document.getElementById('btn-gerar-pdf')?.getAttribute('data-total')?.replace(',','.') || '0');
+    const totalNovoPedido = parseFloat(document.getElementById('btn-gerar-pdf')?.getAttribute('data-total')?.replace(',','.') || '0');
 
+    // === TRAVA DE LIMITE DE CRÉDITO ===
+    if (statusAtual === 'Produção') {
+        const creditoOk = window.verificarLimiteCredito(nomeCliente, totalNovoPedido);
+        if (!creditoOk) return; // Cancela salvamento se ultrapassar o limite
+    }
+    
     const dados = {
         cliente_nome: nomeCliente,
         cliente_id: cliente.id,
         cliente_endereco: cliente.endereco || '',
         status: statusAtual,
-        valor_total: totalGeral,
-        data_criacao: id ? window.bancoPedidos.find(p=>p.id===id).data_criacao : serverTimestamp(),
+        valor_total: totalNovoPedido,
         itens: []
     };
     
@@ -944,12 +1005,12 @@ async function salvarPedidoAtual() {
             });
         }
     });
-
+    
     if (dados.itens.length === 0) {
         Swal.fire({ icon: 'warning', title: 'Sem itens', text: 'Adicione pelo menos um item!' });
         return;
     }
-
+    
     btn.innerHTML = '💾 Salvando...';
     btn.disabled = true;
     
@@ -957,6 +1018,7 @@ async function salvarPedidoAtual() {
         if (id) await updateDoc(doc(db, "pedidos", id), dados);
         else {
             dados.numero_sequencial = await obterProximoNumeroPedido();
+            dados.data_criacao = serverTimestamp();
             await addDoc(collection(db, "pedidos"), dados);
         }
         Swal.fire({ icon: 'success', title: 'Sucesso!', text: 'Pedido salvo!', timer: 2000, showConfirmButton: false });
@@ -971,13 +1033,14 @@ async function salvarPedidoAtual() {
 
 function atualizarTextoBotaoSalvar(modo) {
     const btn = document.getElementById('btn-salvar');
-    if(!btn) return;
     if (modo === 'editando') {
         btn.innerHTML = '✏️ Atualizar Pedido';
-        btn.classList.add('bg-blue-600');
+        btn.classList.remove('bg-green-600', 'hover:bg-green-700');
+        btn.classList.add('bg-blue-600', 'hover:bg-blue-700');
     } else {
         btn.innerHTML = '📦 Salvar Pedido';
-        btn.classList.add('bg-green-600');
+        btn.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+        btn.classList.add('bg-green-600', 'hover:bg-green-700');
     }
 }
 
@@ -1031,7 +1094,7 @@ document.getElementById('btn-salvar-cliente').addEventListener('click', async ()
 });
 
 // ==========================================
-// FUNÇÃO PRINCIPAL - ABRIR PEDIDO (CORRIGIDA: BATENTE E CÓDIGO)
+// FUNÇÃO PRINCIPAL - ABRIR PEDIDO
 // ==========================================
 window.abrirPedidoParaEdicao = function(id) {
     console.log('🔍 Abrindo pedido:', id);
@@ -1057,7 +1120,6 @@ window.abrirPedidoParaEdicao = function(id) {
     }
     
     const estaBloqueado = ['Produção', 'Em Entrega', 'Entregue'].includes(pedido.status);
-
     if (estaBloqueado) {
         bloquearCampos(true);
         const aviso = document.getElementById('aviso-bloqueio');
@@ -1075,8 +1137,6 @@ window.abrirPedidoParaEdicao = function(id) {
         pedido.itens.forEach((item, index) => {
             const tr = document.createElement('tr'); 
             tr.className = 'text-sm';
-            
-            // NORMALIZAÇÃO: Resolve erro de exibição do Batente prata (Busca por Código ou Nome Seguro)
             const descItemNormalizada = item.descricao ? item.descricao.trim().toLowerCase() : '';
             const produtoNoBanco = window.bancoProdutos.find(p => 
                 (p.descricao ? p.descricao.trim().toLowerCase() : '') === descItemNormalizada
@@ -1084,8 +1144,6 @@ window.abrirPedidoParaEdicao = function(id) {
 
             const codigoExibicao = produtoNoBanco ? produtoNoBanco.codigo : '---';
             const selectId = 'produto-select-' + Date.now() + '-' + index;
-            
-            // TRAVA: Se status for Produção ou superior, desativa o seletor para não mudar preço
             const travaSelect = estaBloqueado ? 'disabled' : '';
 
             let selectHtml = `<select id="${selectId}" ${travaSelect} class="w-full p-1 border rounded desc-item border-blue-300 focus:ring-2 focus:ring-blue-500 bg-gray-50 produto-select" style="width: 100%;" onchange="window.preencherProduto(this)">`;
@@ -1160,12 +1218,9 @@ window.cancelarEdicaoCliente = function() {
     document.getElementById('btn-cancelar-cliente').classList.add('hidden');
 };
 
-window.resetCompletoSistema = async function() {
-    const result = await Swal.fire({ title: '⚠️ ATENÇÃO!', text: 'Isso vai APAGAR TODOS os dados!', icon: 'warning', showCancelButton: true });
-    if (result.isConfirmed) { /* lógica original mantida */ }
-};
-
-// EXPORTAÇÕES FINAIS
+// ==========================================
+// EXPORTA TODAS AS FUNÇÕES PARA USO GLOBAL
+// ==========================================
 window.formatarValorReais = (v) => (parseFloat(v) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 window.formatarDataParaExibir = (d) => d ? new Date(d.seconds*1000).toLocaleDateString('pt-BR') : '-';
 window.carregarMemoriaBanco = carregarMemoriaBanco;
@@ -1183,10 +1238,8 @@ window.excluirCliente = excluirCliente;
 window.excluirProduto = excluirProduto;
 window.filtrarPedidos = filtrarPedidos;
 window.cancelarEdicaoCliente = cancelarEdicaoCliente;
-window.resetCompletoSistema = resetCompletoSistema;
 window.buscarCEPCadastro = buscarCEPCadastro;
 window.carregarDadosCliente = carregarDadosCliente;
 window.preencherProduto = preencherProduto;
 window.atualizarParcelas = atualizarParcelas;
 window.salvarPedidoAtual = salvarPedidoAtual;
-window.bloquearCampos = bloquearCampos;
