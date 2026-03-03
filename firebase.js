@@ -4,7 +4,7 @@
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { getFirestore, collection, addDoc, serverTimestamp, getDocs, doc, updateDoc, deleteDoc, runTransaction, writeBatch } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+import { getAuth, onAuthStateChanged, signOut, setPersistence, browserSessionPersistence } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
 const firebaseConfig = {
     apiKey: "AIzaSyBb8UGRV8qcjV6-_kd7WucWhoJBKSHcUac",
@@ -18,6 +18,9 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
+
+// CONFIGURAÇÃO DE SEGURANÇA: Login expira ao fechar o navegador
+setPersistence(auth, browserSessionPersistence);
 
 // ==========================================
 // EXPORTA FUNÇÕES DO FIREBASE PARA USO GLOBAL
@@ -158,7 +161,7 @@ window.preencherProduto = function(select) {
     const fornItem = tr.querySelector('.forn-item');
     const spanCodigo = tr.querySelector('.codigo-badge');
     
-    // ATUALIZAÇÃO: Busca o código real no banco para exibir na badge ao selecionar
+    // Atualiza o código na tabela ao selecionar um produto
     const produtoEncontrado = window.bancoProdutos.find(p => p.descricao === selectedOption.value);
     if (spanCodigo) spanCodigo.innerText = produtoEncontrado ? produtoEncontrado.codigo : '---';
     
@@ -828,7 +831,7 @@ function renderizarTudo() {
         }
     }
     
-    // ATUALIZAÇÃO: Datalists de sugestão para evitar itens "fantasmas"
+    // ATUALIZAÇÃO: Datalists de sugestão
     const dlCli = document.getElementById('lista-sugestao-clientes');
     if(dlCli) dlCli.innerHTML = window.bancoClientes.map(c => `<option value="${c.nome}">`).join('');
     
@@ -837,7 +840,7 @@ function renderizarTudo() {
 }
 
 // ==========================================
-// FUNÇÃO PARA NOVO PEDIDO (VERSÃO CORRIGIDA: INICIA LIMPO)
+// FUNÇÃO PARA NOVO PEDIDO (INICIA LIMPO)
 // ==========================================
 window.novoPedido = function() {
     console.log('➕ Iniciando novo pedido - reset completo');
@@ -863,7 +866,7 @@ window.novoPedido = function() {
     const btnSalvar = document.getElementById('btn-salvar');
     btnSalvar.innerHTML = '📦 Salvar Pedido';
     
-    // ATUALIZAÇÃO: Tabela inicia totalmente vazia para evitar lixo no banco
+    // ATUALIZAÇÃO: Tabela inicia totalmente vazia para evitar linhas sem dados
     const tbody = document.getElementById('tabela-itens');
     tbody.innerHTML = '<tr><td colspan="7" class="p-4 text-center text-gray-500 italic">Tabela vazia. Use o botão azul para adicionar produtos.</td></tr>';
     
@@ -1028,7 +1031,7 @@ document.getElementById('btn-salvar-cliente').addEventListener('click', async ()
 });
 
 // ==========================================
-// FUNÇÃO PRINCIPAL - ABRIR PEDIDO (CORRIGIDA: BATENTE, CÓDIGO E TRAVAS)
+// FUNÇÃO PRINCIPAL - ABRIR PEDIDO (CORRIGIDA: BATENTE E CÓDIGO)
 // ==========================================
 window.abrirPedidoParaEdicao = function(id) {
     console.log('🔍 Abrindo pedido:', id);
@@ -1159,7 +1162,7 @@ window.cancelarEdicaoCliente = function() {
 
 window.resetCompletoSistema = async function() {
     const result = await Swal.fire({ title: '⚠️ ATENÇÃO!', text: 'Isso vai APAGAR TODOS os dados!', icon: 'warning', showCancelButton: true });
-    if (result.isConfirmed) { /* lógica original */ }
+    if (result.isConfirmed) { /* lógica original mantida */ }
 };
 
 // EXPORTAÇÕES FINAIS
