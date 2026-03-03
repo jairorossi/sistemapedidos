@@ -20,6 +20,20 @@ const db = getFirestore(app);
 const auth = getAuth(app);
 
 // ==========================================
+// EXPORTA FUNÇÕES DO FIREBASE PARA USO GLOBAL
+// ==========================================
+window.db = db;
+window.collection = collection;
+window.addDoc = addDoc;
+window.serverTimestamp = serverTimestamp;
+window.getDocs = getDocs;
+window.doc = doc;
+window.updateDoc = updateDoc;
+window.deleteDoc = deleteDoc;
+window.runTransaction = runTransaction;
+window.writeBatch = writeBatch;
+
+// ==========================================
 // PROTEÇÃO DE ACESSO
 // ==========================================
 let loginVerificado = false;
@@ -144,13 +158,13 @@ window.preencherProduto = function(select) {
     const fornItem = tr.querySelector('.forn-item');
     
     if (valorItem) {
-        valorItem.value = formatarValorReais(parseFloat(valor));
+        valorItem.value = window.formatarValorReais(parseFloat(valor));
     }
     if (fornItem) {
         fornItem.value = fornecedor || '';
     }
     
-    calcularTudo();
+    window.calcularTudo();
 };
 
 // ==========================================
@@ -309,10 +323,10 @@ window.carregarDadosFinanceiros = async function() {
         }
     });
     
-    document.getElementById('total-a-receber').innerText = formatarValorReais(totalReceber);
-    document.getElementById('total-a-vencer').innerText = formatarValorReais(totalVencer);
-    document.getElementById('total-atrasado').innerText = formatarValorReais(totalAtrasado);
-    document.getElementById('total-recebido-mes').innerText = formatarValorReais(totalRecebidoMes);
+    document.getElementById('total-a-receber').innerText = window.formatarValorReais(totalReceber);
+    document.getElementById('total-a-vencer').innerText = window.formatarValorReais(totalVencer);
+    document.getElementById('total-atrasado').innerText = window.formatarValorReais(totalAtrasado);
+    document.getElementById('total-recebido-mes').innerText = window.formatarValorReais(totalRecebidoMes);
     
     const maxValor = Math.max(...valoresPorMes, 1);
     const meses = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun'];
@@ -322,7 +336,7 @@ window.carregarDadosFinanceiros = async function() {
         if (barra) {
             const altura = valoresPorMes[i] > 0 ? (valoresPorMes[i] / maxValor) * 140 : 0;
             barra.style.height = altura + 'px';
-            barra.title = formatarValorReais(valoresPorMes[i]);
+            barra.title = window.formatarValorReais(valoresPorMes[i]);
         }
     }
     
@@ -419,8 +433,8 @@ window.filtrarFinanceiro = function() {
                 <td class="p-2 border">${p.cliente}</td>
                 <td class="p-2 border font-bold">${numeroPedido}</td>
                 <td class="p-2 border">${parcelaTexto}</td>
-                <td class="p-2 border">${formatarDataParaExibir(p.vencimento)}</td>
-                <td class="p-2 border">${formatarValorReais(p.valor)}</td>
+                <td class="p-2 border">${window.formatarDataParaExibir(p.vencimento)}</td>
+                <td class="p-2 border">${window.formatarValorReais(p.valor)}</td>
                 <td class="p-2 border">
                     <span class="px-2 py-1 rounded-full text-xs font-medium text-white ${statusClass}">
                         ${statusText}
@@ -732,7 +746,7 @@ function renderizarTudo() {
             <td class="p-2 border-r">${p.data_criacao ? new Date(p.data_criacao.seconds*1000).toLocaleDateString() : '-'}</td>
             <td class="p-2 border-r">${p.cliente_nome}</td>
             <td class="p-2 border-r">${gerarBadgeStatus(p.status)}</td>
-            <td class="p-2 border-r">${formatarValorReais(p.valor_total)}</td>
+            <td class="p-2 border-r">${window.formatarValorReais(p.valor_total)}</td>
             <td class="p-2 border-r">${p.condicao_pagamento || 'Vista'}</td>
             <td class="p-2 text-center">
                 <button onclick="window.abrirPedidoParaEdicao('${p.id}')" class="btn btn-dark btn-sm">
@@ -745,43 +759,66 @@ function renderizarTudo() {
         const telefone = c.telefone || '-';
         const endereco = c.endereco || '-';
         const enderecoResumido = endereco.length > 30 ? endereco.substring(0,30) + '...' : endereco;
+        const limite = c.limite ? window.formatarValorReais(c.limite) : 'R$ 0,00';
         
         return `
         <tr class="border-b text-sm hover:bg-gray-50">
+            <td class="p-2 border">${c.codigo || '---'}</td>
             <td class="p-2 border">${c.nome}</td>
             <td class="p-2 border">${telefone}</td>
             <td class="p-2 border">${enderecoResumido}</td>
+            <td class="p-2 border">${limite}</td>
             <td class="p-2 border">
-                <button onclick="window.editarCliente('${c.id}','${c.nome}','${c.telefone || ''}','${c.documento || ''}','${c.endereco || ''}','${c.cep || ''}')" class="text-blue-600 hover:text-blue-800 mr-2" title="Editar">
+                <button onclick="window.editarCliente('${c.id}','${c.nome}','${c.telefone || ''}','${c.documento || ''}','${c.endereco || ''}','${c.cep || ''}','${c.email || ''}','${c.nascimento || ''}','${c.limite || 0}','${c.observacoes || ''}')" class="text-blue-600 hover:text-blue-800 mr-2" title="Editar">
                     ✏️
                 </button>
                 <button onclick="window.excluirCliente('${c.id}')" class="text-red-600 hover:text-red-800" title="Excluir">
                     🗑️
                 </button>
             </td>
-        </tr>`}).join('') || '<tr><td colspan="4" class="p-4 text-center text-gray-500">Nenhum cliente encontrado</td></tr>';
+        </tr>`}).join('') || '<tr><td colspan="6" class="p-4 text-center text-gray-500">Nenhum cliente encontrado</td></tr>';
 
-    document.getElementById('lista-produtos').innerHTML = window.bancoProdutos.map(p => `
+    document.getElementById('lista-produtos').innerHTML = window.bancoProdutos.map(p => {
+        let estoqueClass = '';
+        let estoqueText = '';
+        
+        if (p.estoque_atual !== undefined) {
+            if (p.estoque_atual <= 0) {
+                estoqueClass = 'text-red-600 font-bold';
+                estoqueText = 'ESGOTADO';
+            } else if (p.estoque_minimo && p.estoque_atual <= p.estoque_minimo) {
+                estoqueClass = 'text-orange-600 font-bold';
+                estoqueText = 'BAIXO';
+            } else {
+                estoqueClass = 'text-green-600';
+                estoqueText = p.estoque_atual;
+            }
+        }
+        
+        return `
         <tr class="border-b text-sm hover:bg-gray-50">
+            <td class="p-2 border font-mono font-bold">${p.codigo || '---'}</td>
             <td class="p-2 border">${p.descricao}</td>
-            <td class="p-2 border">${p.fornecedor || '-'}</td>
-            <td class="p-2 border">${formatarValorReais(p.valor_base)}</td>
+            <td class="p-2 border">${p.categoria || '-'}</td>
+            <td class="p-2 border">${p.marca || '-'}</td>
+            <td class="p-2 border font-bold">${window.formatarValorReais(p.valor_base)}</td>
+            <td class="p-2 border ${estoqueClass}">${estoqueText}</td>
             <td class="p-2 border">
-                <button onclick="window.editarProduto('${p.id}','${p.descricao}','${p.fornecedor || ''}','${p.valor_base}')" class="text-blue-600 hover:text-blue-800 mr-2">
+                <button onclick="window.editarProduto('${p.id}')" class="text-blue-600 hover:text-blue-800 mr-2" title="Editar">
                     ✏️
                 </button>
-                <button onclick="window.excluirProduto('${p.id}')" class="text-red-600 hover:text-red-800">
+                <button onclick="window.excluirProduto('${p.id}')" class="text-red-600 hover:text-red-800" title="Excluir">
                     🗑️
                 </button>
             </td>
-        </tr>`).join('') || '<tr><td colspan="4" class="p-4 text-center text-gray-500">Nenhum produto encontrado</td></tr>';
+        </tr>`}).join('') || '<tr><td colspan="7" class="p-4 text-center text-gray-500">Nenhum produto encontrado</td></tr>';
 
     const selectCliente = document.getElementById('input-cliente');
     if (selectCliente) {
         const currentValue = selectCliente.value;
         selectCliente.innerHTML = '<option value="">Selecione um cliente</option>';
         window.bancoClientes.forEach(c => {
-            selectCliente.innerHTML += `<option value="${c.nome}">${c.nome}</option>`;
+            selectCliente.innerHTML += `<option value="${c.nome}">${c.codigo ? '[' + c.codigo + '] ' : ''}${c.nome}</option>`;
         });
         if (currentValue) {
             selectCliente.value = currentValue;
@@ -819,7 +856,7 @@ function renderizarTabelaPedidosNoFilter(lista) {
             <td class="p-2 border-r">${p.data_criacao ? new Date(p.data_criacao.seconds*1000).toLocaleDateString() : '-'}</td>
             <td class="p-2 border-r">${p.cliente_nome}</td>
             <td class="p-2 border-r">${gerarBadgeStatus(p.status)}</td>
-            <td class="p-2 border-r">${formatarValorReais(p.valor_total)}</td>
+            <td class="p-2 border-r">${window.formatarValorReais(p.valor_total)}</td>
             <td class="p-2 border-r">${p.condicao_pagamento || 'Vista'}</td>
             <td class="p-2 text-center">
                 <button onclick="window.abrirPedidoParaEdicao('${p.id}')" class="btn btn-dark btn-sm">
@@ -926,7 +963,7 @@ window.novoPedido = function() {
     const selectId = 'produto-select-' + Date.now() + '-0';
     
     tr.innerHTML = `
-        <td class="p-2 border"><input type="number" value="1" min="1" class="w-16 p-1 border rounded qtd-item" onchange="calcularTudo()" onkeyup="calcularTudo()"></td>
+        <td class="p-2 border"><input type="number" value="1" min="1" class="w-16 p-1 border rounded qtd-item" onchange="window.calcularTudo()" onkeyup="window.calcularTudo()"></td>
         <td class="p-2 border">
             <select id="${selectId}" class="w-full p-1 border rounded desc-item border-blue-300 focus:ring-2 focus:ring-blue-500 bg-gray-50 produto-select" style="width: 100%;" onchange="window.preencherProduto(this)">
                 <option value="">Selecione um produto</option>
@@ -935,7 +972,7 @@ window.novoPedido = function() {
         <td class="p-2 border"><input type="text" placeholder="Fornecedor" class="w-full p-1 border rounded forn-item bg-gray-100" readonly></td>
         <td class="p-2 border"><input type="text" class="w-24 p-1 border rounded valor-item bg-gray-100 text-right" value="R$ 0,00" readonly></td>
         <td class="p-2 border font-semibold total-linha">R$ 0,00</td>
-        <td class="p-2 border text-center"><button onclick="if(podeEditarPedido()) { this.closest('tr').remove(); calcularTudo(); } else { Swal.fire({ icon: 'error', title: 'Ação bloqueada', text: '❌ Não é possível remover itens de um pedido em andamento!', confirmButtonColor: '#3b82f6' }); }" class="text-red-500 font-bold hover:text-red-700">X</button></td>
+        <td class="p-2 border text-center"><button onclick="if(window.podeEditarPedido()) { this.closest('tr').remove(); window.calcularTudo(); } else { Swal.fire({ icon: 'error', title: 'Ação bloqueada', text: '❌ Não é possível remover itens de um pedido em andamento!', confirmButtonColor: '#3b82f6' }); }" class="text-red-500 font-bold hover:text-red-700">X</button></td>
     `;
     
     tbody.appendChild(tr);
@@ -945,8 +982,8 @@ window.novoPedido = function() {
     linhaAdicionar.id = 'linha-adicionar';
     linhaAdicionar.innerHTML = `
         <td class="p-2 border bg-gray-50 text-center" colspan="6">
-            <button onclick="adicionarLinha()" class="text-blue-600 font-semibold hover:underline w-full py-2">
-                + Adicionar Item
+            <button onclick="window.adicionarLinha()" class="text-blue-600 font-semibold hover:underline w-full py-2">
+                + Adicionar Item Manualmente
             </button>
         </td>
     `;
@@ -959,7 +996,7 @@ window.novoPedido = function() {
             option.value = p.descricao;
             option.setAttribute('data-valor', p.valor_base);
             option.setAttribute('data-forn', p.fornecedor || '');
-            option.textContent = `${p.descricao} - ${formatarValorReais(p.valor_base)}`;
+            option.textContent = `${p.codigo ? '#' + p.codigo + ' - ' : ''}${p.descricao} - ${window.formatarValorReais(p.valor_base)}`;
             primeiroSelect.appendChild(option);
         });
         
@@ -972,7 +1009,7 @@ window.novoPedido = function() {
         }
     }
     
-    calcularTudo();
+    window.calcularTudo();
     
     Swal.fire({
         icon: 'success',
@@ -1003,12 +1040,30 @@ window.cancelarEdicao = async function() {
     }
 };
 
+// ==========================================
+// FUNÇÃO PARA SALVAR PEDIDO
+// ==========================================
 async function salvarPedidoAtual() {
-    if (!auth.currentUser) return;
+    console.log('💾 Iniciando salvamento do pedido...');
+    
+    if (!auth.currentUser) {
+        Swal.fire({
+            icon: 'error',
+            title: 'Erro',
+            text: 'Usuário não autenticado!',
+            confirmButtonColor: '#3b82f6'
+        });
+        return;
+    }
     
     const btn = document.getElementById('btn-salvar');
+    if (!btn) {
+        console.error('Botão salvar não encontrado');
+        return;
+    }
+    
     const textoOriginal = btn.innerHTML;
-    const id = document.getElementById('pedido-id-atual').value;
+    const id = document.getElementById('pedido-id-atual')?.value;
     
     const selectCliente = document.getElementById('input-cliente');
     const nomeCliente = selectCliente ? selectCliente.value : '';
@@ -1025,21 +1080,20 @@ async function salvarPedidoAtual() {
     }
     
     let pedagio = 0;
-    const pedagioInput = document.getElementById('input-pedagio').value;
+    const pedagioInput = document.getElementById('input-pedagio')?.value;
     if (pedagioInput) {
         pedagio = parseFloat(pedagioInput.replace(/[^\d,]/g, '').replace(',', '.')) || 0;
     }
     
     let acrescimo = 0;
-    const acrescimoInput = document.getElementById('input-acrescimo').value;
+    const acrescimoInput = document.getElementById('input-acrescimo')?.value;
     if (acrescimoInput) {
         acrescimo = parseFloat(acrescimoInput.replace(/[^\d,]/g, '').replace(',', '.')) || 0;
     }
     
-    const condicaoPagamento = document.getElementById('select-condicao-pagamento').value;
-    const primeiroVencimento = document.getElementById('input-primeiro-vencimento').value;
-    
-    const statusAtual = document.getElementById('select-status').value;
+    const condicaoPagamento = document.getElementById('select-condicao-pagamento')?.value || 'Vista';
+    const primeiroVencimento = document.getElementById('input-primeiro-vencimento')?.value;
+    const statusAtual = document.getElementById('select-status')?.value || 'Orçamento';
     
     const dados = {
         cliente_nome: nomeCliente,
@@ -1050,17 +1104,17 @@ async function salvarPedidoAtual() {
         status: statusAtual,
         condicao_pagamento: condicaoPagamento,
         primeiro_vencimento: primeiroVencimento,
-        valor_total: parseFloat(document.getElementById('btn-gerar-pdf').getAttribute('data-total').replace(',','.')) || 0,
-        desconto: document.getElementById('input-desconto').value || '0',
+        valor_total: parseFloat(document.getElementById('btn-gerar-pdf')?.getAttribute('data-total')?.replace(',','.') || '0') || 0,
+        desconto: document.getElementById('input-desconto')?.value || '0',
         acrescimo: acrescimo,
-        motivo_acrescimo: document.getElementById('input-motivo-acrescimo').value || '',
+        motivo_acrescimo: document.getElementById('input-motivo-acrescimo')?.value || '',
         frete: {
-            distancia: document.getElementById('input-km').value || '0',
-            preco_combustivel: document.getElementById('input-litro').value || '4.20',
-            consumo: document.getElementById('input-consumo').value || '9.0',
+            distancia: document.getElementById('input-km')?.value || '0',
+            preco_combustivel: document.getElementById('input-litro')?.value || '4.20',
+            consumo: document.getElementById('input-consumo')?.value || '9.0',
             pedagio: pedagio,
-            custo_combustivel: document.getElementById('custo-combustivel').innerText || 'R$ 0,00',
-            custo_total: document.getElementById('custo-total-frete').innerText || 'R$ 0,00'
+            custo_combustivel: document.getElementById('custo-combustivel')?.innerText || 'R$ 0,00',
+            custo_total: document.getElementById('custo-total-frete')?.innerText || 'R$ 0,00'
         },
         itens: []
     };
@@ -1075,10 +1129,10 @@ async function salvarPedidoAtual() {
         const desc = selectedOption.text.split(' - ')[0];
         if (desc && desc !== 'Selecione um produto') {
             dados.itens.push({ 
-                quantidade: tr.querySelector('.qtd-item').value, 
+                quantidade: tr.querySelector('.qtd-item')?.value || '1', 
                 descricao: desc, 
-                fornecedor: tr.querySelector('.forn-item').value, 
-                valor_unitario: tr.querySelector('.valor-item').value.replace('R$', '').trim()
+                fornecedor: tr.querySelector('.forn-item')?.value || '', 
+                valor_unitario: tr.querySelector('.valor-item')?.value?.replace('R$', '').trim() || '0,00'
             });
         }
     });
@@ -1094,13 +1148,14 @@ async function salvarPedidoAtual() {
     }
     
     btn.innerHTML = '💾 Salvando...';
+    btn.disabled = true;
     
     try {
         let pedidoId = id;
         
         if (id) {
             await updateDoc(doc(db, "pedidos", id), dados);
-            console.log('Pedido atualizado com status:', dados.status);
+            console.log('✅ Pedido atualizado com status:', dados.status);
         } else {
             dados.numero_sequencial = await obterProximoNumeroPedido();
             dados.data_criacao = serverTimestamp();
@@ -1160,15 +1215,16 @@ async function salvarPedidoAtual() {
         await carregarMemoriaBanco();
         
     } catch (error) {
-        console.error('Erro ao salvar:', error);
+        console.error('❌ Erro ao salvar:', error);
         Swal.fire({
             icon: 'error',
             title: 'Erro',
-            text: 'Erro ao salvar pedido!',
+            text: 'Erro ao salvar pedido: ' + error.message,
             confirmButtonColor: '#3b82f6'
         });
     } finally {
         btn.innerHTML = textoOriginal;
+        btn.disabled = false;
     }
 }
 
@@ -1185,7 +1241,24 @@ function atualizarTextoBotaoSalvar(modo) {
     }
 }
 
-document.getElementById('btn-salvar').addEventListener('click', salvarPedidoAtual);
+// ==========================================
+// ADICIONAR EVENT LISTENER AO BOTÃO SALVAR
+// ==========================================
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🔧 Configurando botão salvar...');
+    const btnSalvar = document.getElementById('btn-salvar');
+    if (btnSalvar) {
+        // Remover event listeners antigos
+        const newBtnSalvar = btnSalvar.cloneNode(true);
+        btnSalvar.parentNode.replaceChild(newBtnSalvar, btnSalvar);
+        
+        // Adicionar novo event listener
+        newBtnSalvar.addEventListener('click', salvarPedidoAtual);
+        console.log('✅ Botão salvar configurado com sucesso!');
+    } else {
+        console.error('❌ Botão salvar não encontrado!');
+    }
+});
 
 // ==========================================
 // FUNÇÕES DE CLIENTES
@@ -1206,13 +1279,36 @@ document.getElementById('btn-salvar-cliente').addEventListener('click', async ()
     
     const telefone = document.getElementById('cli-telefone').value;
     const documento = document.getElementById('cli-documento').value;
+    const email = document.getElementById('cli-email')?.value || '';
+    const nascimento = document.getElementById('cli-nascimento')?.value || '';
+    const limiteTexto = document.getElementById('cli-limite')?.value || '0,00';
+    const observacoes = document.getElementById('cli-obs')?.value || '';
+    
+    const limite = parseFloat(limiteTexto.replace(/[^\d,]/g, '').replace(',', '.')) || 0;
+    
+    let codigo = '';
+    if (!id) {
+        let maxCodigo = 0;
+        window.bancoClientes.forEach(c => {
+            if (c.codigo) {
+                const num = parseInt(c.codigo);
+                if (!isNaN(num) && num > maxCodigo) maxCodigo = num;
+            }
+        });
+        codigo = (maxCodigo + 1).toString().padStart(4, '0');
+    }
     
     const d = { 
+        codigo: codigo,
         nome: nome, 
         telefone: telefone,
         documento: documento,
         cep: document.getElementById('cli-cep').value,
-        endereco: document.getElementById('cli-endereco').value 
+        endereco: document.getElementById('cli-endereco').value,
+        email: email,
+        nascimento: nascimento,
+        limite: limite,
+        observacoes: observacoes
     };
     
     try {
@@ -1251,79 +1347,11 @@ document.getElementById('btn-salvar-cliente').addEventListener('click', async ()
     document.getElementById('cli-documento').value = '';
     document.getElementById('cli-cep').value = '';
     document.getElementById('cli-endereco').value = '';
+    document.getElementById('cli-email').value = '';
+    document.getElementById('cli-nascimento').value = '';
+    document.getElementById('cli-limite').value = '0,00';
+    document.getElementById('cli-obs').value = '';
     document.getElementById('btn-cancelar-cliente').classList.add('hidden');
-    
-    carregarMemoriaBanco();
-});
-
-document.getElementById('btn-salvar-produto').addEventListener('click', async () => {
-    const id = document.getElementById('prod-id').value;
-    
-    const descricao = document.getElementById('prod-desc').value;
-    const valorTexto = document.getElementById('prod-valor').value;
-    const valor = parseFloat(valorTexto.replace(/[^\d,]/g, '').replace(',', '.')) || 0;
-    
-    if (!descricao) {
-        Swal.fire({
-            icon: 'warning',
-            title: 'Campo obrigatório',
-            text: 'A descrição do produto é obrigatória!',
-            confirmButtonColor: '#3b82f6'
-        });
-        return;
-    }
-    
-    if (valor <= 0) {
-        Swal.fire({
-            icon: 'warning',
-            title: 'Valor inválido',
-            text: 'O valor do produto deve ser maior que zero!',
-            confirmButtonColor: '#3b82f6'
-        });
-        return;
-    }
-    
-    const d = { 
-        descricao: descricao, 
-        fornecedor: document.getElementById('prod-forn').value,
-        valor_base: valor
-    };
-    
-    try {
-        if(id) {
-            await updateDoc(doc(db,"produtos",id), d);
-            Swal.fire({
-                icon: 'success',
-                title: 'Sucesso!',
-                text: 'Produto atualizado com sucesso!',
-                timer: 2000,
-                showConfirmButton: false
-            });
-        } else { 
-            await addDoc(collection(db,"produtos"), {...d, data_cadastro: serverTimestamp()});
-            Swal.fire({
-                icon: 'success',
-                title: 'Sucesso!',
-                text: 'Produto cadastrado com sucesso!',
-                timer: 2000,
-                showConfirmButton: false
-            });
-        }
-    } catch (error) {
-        console.error('Erro ao salvar produto:', error);
-        Swal.fire({
-            icon: 'error',
-            title: 'Erro',
-            text: 'Erro ao salvar produto!',
-            confirmButtonColor: '#3b82f6'
-        });
-    }
-    
-    document.getElementById('prod-id').value = ''; 
-    document.getElementById('prod-desc').value = ''; 
-    document.getElementById('prod-forn').value = '';
-    document.getElementById('prod-valor').value = '0,00';
-    document.getElementById('btn-cancelar-produto').classList.add('hidden');
     
     carregarMemoriaBanco();
 });
@@ -1351,11 +1379,9 @@ window.abrirPedidoParaEdicao = function(id) {
 
     const cliente = window.bancoClientes.find(c => c.id === pedido.cliente_id);
     
-    // Resetar bloqueio antes de carregar
     bloquearCampos(false);
     document.getElementById('aviso-bloqueio').classList.add('hidden');
     
-    // Dados básicos
     document.getElementById('pedido-id-atual').value = pedido.id;
     
     const selectCliente = document.getElementById('input-cliente');
@@ -1369,7 +1395,6 @@ window.abrirPedidoParaEdicao = function(id) {
     
     document.getElementById('pdf-n-display').innerText = '#' + (pedido.numero_sequencial?.toString().padStart(3,'0') || '???');
     
-    // Dados do cliente
     if (cliente) {
         document.getElementById('cliente-telefone').innerText = cliente.telefone || '-';
         document.getElementById('cliente-documento').innerText = cliente.documento || '-';
@@ -1382,14 +1407,12 @@ window.abrirPedidoParaEdicao = function(id) {
     document.getElementById('btn-cancelar-pedido').classList.remove('hidden');
     atualizarTextoBotaoSalvar('editando');
     
-    // Status do pedido
     if (pedido.status) {
         const selectStatus = document.getElementById('select-status');
         if (selectStatus) {
             selectStatus.value = pedido.status;
             console.log('Status setado para:', pedido.status);
             
-            // Atualiza botões de status
             const botoes = document.querySelectorAll('[id^="status-"]');
             botoes.forEach(btn => {
                 btn.classList.remove('border-yellow-500', 'bg-yellow-50', 'text-yellow-700',
@@ -1423,7 +1446,6 @@ window.abrirPedidoParaEdicao = function(id) {
                 }
             }
             
-            // Atualiza barra de progresso
             const progressos = {
                 'Orçamento': { width: '25%', cor: 'bg-yellow-500', texto: 'Orçamento' },
                 'Produção': { width: '50%', cor: 'bg-blue-500', texto: 'Em produção' },
@@ -1446,7 +1468,6 @@ window.abrirPedidoParaEdicao = function(id) {
         }
     }
     
-    // Bloquear campos se necessário
     const statusBloqueados = ['Produção', 'Em Entrega', 'Entregue'];
     if (statusBloqueados.includes(pedido.status)) {
         bloquearCampos(true);
@@ -1458,7 +1479,6 @@ window.abrirPedidoParaEdicao = function(id) {
         }
     }
     
-    // Dados do frete
     if (pedido.frete) {
         document.getElementById('input-km').value = pedido.frete.distancia || '0';
         document.getElementById('input-litro').value = pedido.frete.preco_combustivel || '4.20';
@@ -1475,12 +1495,10 @@ window.abrirPedidoParaEdicao = function(id) {
         }
     }
     
-    // Descontos e acréscimos
     if (pedido.desconto) document.getElementById('input-desconto').value = pedido.desconto;
     if (pedido.acrescimo) document.getElementById('input-acrescimo').value = pedido.acrescimo.toFixed(2).replace('.', ',');
     if (pedido.motivo_acrescimo) document.getElementById('input-motivo-acrescimo').value = pedido.motivo_acrescimo;
     
-    // Condições de pagamento
     if (pedido.condicao_pagamento) {
         document.getElementById('select-condicao-pagamento').value = pedido.condicao_pagamento;
         if (pedido.condicao_pagamento === 'Personalizado') {
@@ -1492,9 +1510,6 @@ window.abrirPedidoParaEdicao = function(id) {
         document.getElementById('input-primeiro-vencimento').value = pedido.primeiro_vencimento;
     }
     
-    // ==========================================
-    // CARREGAR ITENS DO PEDIDO
-    // ==========================================
     const tbody = document.getElementById('tabela-itens');
     tbody.innerHTML = '';
 
@@ -1504,7 +1519,6 @@ window.abrirPedidoParaEdicao = function(id) {
         pedido.itens.forEach((item, index) => {
             console.log(`Item ${index + 1}:`, item);
             
-            // Processar valor unitário
             let valorUnitario = 0;
             
             if (typeof item.valor_unitario === 'string') {
@@ -1529,7 +1543,6 @@ window.abrirPedidoParaEdicao = function(id) {
             
             const selectId = 'produto-select-' + Date.now() + '-' + index + '-' + Math.random().toString(36).substr(2, 5);
             
-            // Montar select com comparação robusta
             let selectHtml = `<select id="${selectId}" class="w-full p-1 border rounded desc-item border-blue-300 focus:ring-2 focus:ring-blue-500 bg-gray-50 produto-select" style="width: 100%;" onchange="window.preencherProduto(this)">`;
             selectHtml += '<option value="">Selecione um produto</option>';
             
@@ -1539,31 +1552,30 @@ window.abrirPedidoParaEdicao = function(id) {
                 const descricaoProdutoNormalizada = p.descricao ? p.descricao.trim().toLowerCase() : '';
                 const selected = descricaoProdutoNormalizada === descricaoItemNormalizada ? 'selected' : '';
                 
-                selectHtml += `<option value="${p.descricao}" data-valor="${p.valor_base}" data-forn="${p.fornecedor || ''}" ${selected}>${p.descricao} - ${formatarValorReais(p.valor_base)}</option>`;
+                selectHtml += `<option value="${p.descricao}" data-valor="${p.valor_base}" data-forn="${p.fornecedor || ''}" ${selected}>${p.codigo ? '#' + p.codigo + ' - ' : ''}${p.descricao} - ${window.formatarValorReais(p.valor_base)}</option>`;
             });
             
             selectHtml += '</select>';
             
-            const valorFormatado = formatarValorReais(valorUnitario);
+            const valorFormatado = window.formatarValorReais(valorUnitario);
             
             tr.innerHTML = `
-                <td class="p-2 border"><input type="number" value="${item.quantidade || 1}" class="w-16 p-1 border rounded qtd-item" onchange="calcularTudo()"></td>
+                <td class="p-2 border"><input type="number" value="${item.quantidade || 1}" class="w-16 p-1 border rounded qtd-item" onchange="window.calcularTudo()"></td>
                 <td class="p-2 border">${selectHtml}</td>
                 <td class="p-2 border"><input type="text" value="${item.fornecedor || ''}" class="w-full p-1 border rounded forn-item bg-gray-100" readonly></td>
                 <td class="p-2 border"><input type="text" value="${valorFormatado}" class="w-24 p-1 border rounded valor-item bg-gray-100 text-right" readonly></td>
                 <td class="p-2 border total-linha">R$ 0,00</td>
-                <td class="p-2 border text-center"><button onclick="if(podeEditarPedido()) { this.closest('tr').remove(); calcularTudo(); } else { Swal.fire({ icon: 'error', title: 'Ação bloqueada', text: '❌ Não é possível remover itens de um pedido em andamento!', confirmButtonColor: '#3b82f6' }); }" class="text-red-500 font-bold">X</button></td>
+                <td class="p-2 border text-center"><button onclick="if(window.podeEditarPedido()) { this.closest('tr').remove(); window.calcularTudo(); } else { Swal.fire({ icon: 'error', title: 'Ação bloqueada', text: '❌ Não é possível remover itens de um pedido em andamento!', confirmButtonColor: '#3b82f6' }); }" class="text-red-500 font-bold">X</button></td>
             `;
             
             tbody.appendChild(tr);
         });
     } else {
-        // Se não tem itens, cria linha em branco
         const tr = document.createElement('tr');
         tr.className = 'text-sm';
         const selectId = 'produto-select-' + Date.now() + '-0';
         tr.innerHTML = `
-            <td class="p-2 border"><input type="number" value="1" min="1" class="w-16 p-1 border rounded qtd-item" onchange="calcularTudo()" onkeyup="calcularTudo()"></td>
+            <td class="p-2 border"><input type="number" value="1" min="1" class="w-16 p-1 border rounded qtd-item" onchange="window.calcularTudo()" onkeyup="window.calcularTudo()"></td>
             <td class="p-2 border">
                 <select id="${selectId}" class="w-full p-1 border rounded desc-item border-blue-300 focus:ring-2 focus:ring-blue-500 bg-gray-50 produto-select" style="width: 100%;" onchange="window.preencherProduto(this)">
                     <option value="">Selecione um produto</option>
@@ -1572,25 +1584,23 @@ window.abrirPedidoParaEdicao = function(id) {
             <td class="p-2 border"><input type="text" placeholder="Fornecedor" class="w-full p-1 border rounded forn-item bg-gray-100" readonly></td>
             <td class="p-2 border"><input type="text" class="w-24 p-1 border rounded valor-item bg-gray-100 text-right" value="R$ 0,00" readonly></td>
             <td class="p-2 border font-semibold total-linha">R$ 0,00</td>
-            <td class="p-2 border text-center"><button onclick="if(podeEditarPedido()) { this.closest('tr').remove(); calcularTudo(); } else { Swal.fire({ icon: 'error', title: 'Ação bloqueada', text: '❌ Não é possível remover itens de um pedido em andamento!', confirmButtonColor: '#3b82f6' }); }" class="text-red-500 font-bold hover:text-red-700">X</button></td>
+            <td class="p-2 border text-center"><button onclick="if(window.podeEditarPedido()) { this.closest('tr').remove(); window.calcularTudo(); } else { Swal.fire({ icon: 'error', title: 'Ação bloqueada', text: '❌ Não é possível remover itens de um pedido em andamento!', confirmButtonColor: '#3b82f6' }); }" class="text-red-500 font-bold hover:text-red-700">X</button></td>
         `;
         tbody.appendChild(tr);
     }
 
-    // Linha de adicionar item
     const linhaAdicionar = document.createElement('tr');
     linhaAdicionar.className = 'text-sm';
     linhaAdicionar.id = 'linha-adicionar';
     linhaAdicionar.innerHTML = `
         <td class="p-2 border bg-gray-50 text-center" colspan="6">
-            <button onclick="adicionarLinha()" class="text-blue-600 font-semibold hover:underline w-full py-2">
-                + Adicionar Item
+            <button onclick="window.adicionarLinha()" class="text-blue-600 font-semibold hover:underline w-full py-2">
+                + Adicionar Item Manualmente
             </button>
         </td>
     `;
     tbody.appendChild(linhaAdicionar);
 
-    // Inicializar Select2
     setTimeout(() => {
         document.querySelectorAll('.produto-select').forEach(select => {
             if ($.fn.select2) {
@@ -1603,41 +1613,44 @@ window.abrirPedidoParaEdicao = function(id) {
         });
     }, 100);
 
-    mostrarAba('aba-cadastro');
+    window.mostrarAba('aba-cadastro');
 
-    // Chamar calcular tudo
     setTimeout(() => {
-        console.log('🔄 Chamando calcularTudo() após delay de 800ms...');
-        calcularTudo();
-        
-        setTimeout(() => {
-            const total = document.getElementById('display-total').innerText;
-            console.log('Total final:', total);
-        }, 100);
-    }, 800);
+        console.log('🔄 Chamando window.calcularTudo()...');
+        window.calcularTudo();
+    }, 500);
 };
 
 // ==========================================
 // FUNÇÕES DE EDIÇÃO E EXCLUSÃO
 // ==========================================
-window.editarCliente = function(id, nome, telefone, documento, endereco, cep) {
+window.editarCliente = function(id, nome, telefone, documento, endereco, cep, email, nascimento, limite, observacoes) {
     document.getElementById('cli-id').value = id;
     document.getElementById('cli-nome').value = nome;
     document.getElementById('cli-telefone').value = telefone || '';
     document.getElementById('cli-documento').value = documento || '';
     document.getElementById('cli-cep').value = cep || '';
     document.getElementById('cli-endereco').value = endereco || '';
+    document.getElementById('cli-email').value = email || '';
+    document.getElementById('cli-nascimento').value = nascimento || '';
+    document.getElementById('cli-limite').value = limite ? parseFloat(limite).toFixed(2).replace('.', ',') : '0,00';
+    document.getElementById('cli-obs').value = observacoes || '';
     document.getElementById('btn-cancelar-cliente').classList.remove('hidden');
-    mostrarAba('aba-clientes');
+    window.mostrarAba('aba-clientes');
 };
 
-window.editarProduto = function(id, descricao, fornecedor, valor) {
-    document.getElementById('prod-id').value = id;
-    document.getElementById('prod-desc').value = descricao;
-    document.getElementById('prod-forn').value = fornecedor || '';
-    document.getElementById('prod-valor').value = parseFloat(valor).toFixed(2).replace('.', ',');
-    document.getElementById('btn-cancelar-produto').classList.remove('hidden');
-    mostrarAba('aba-produtos');
+window.editarProduto = function(id) {
+    if (typeof window.abrirCadastroCompletoProduto === 'function') {
+        window.abrirCadastroCompletoProduto(id);
+    } else {
+        console.error('Função abrirCadastroCompletoProduto não encontrada');
+        Swal.fire({
+            icon: 'error',
+            title: 'Erro',
+            text: 'Função de edição não disponível',
+            confirmButtonColor: '#3b82f6'
+        });
+    }
 };
 
 window.excluirCliente = async (id) => { 
@@ -1699,50 +1712,82 @@ window.filtrarPedidos = (t) => {
 };
 
 window.filtrarClientes = function(termo) {
+    const termoLower = termo.toLowerCase();
     const filtrados = window.bancoClientes.filter(c => 
-        c.nome?.toLowerCase().includes(termo.toLowerCase())
+        c.nome?.toLowerCase().includes(termoLower) ||
+        (c.telefone && c.telefone.includes(termo)) ||
+        (c.documento && c.documento.includes(termo)) ||
+        (c.codigo && c.codigo.includes(termo))
     );
     
     document.getElementById('lista-clientes').innerHTML = filtrados.map(c => {
         const telefone = c.telefone || '-';
         const endereco = c.endereco || '-';
         const enderecoResumido = endereco.length > 30 ? endereco.substring(0,30) + '...' : endereco;
+        const limite = c.limite ? window.formatarValorReais(c.limite) : 'R$ 0,00';
         
         return `
         <tr class="border-b text-sm hover:bg-gray-50">
+            <td class="p-2 border">${c.codigo || '---'}</td>
             <td class="p-2 border">${c.nome}</td>
             <td class="p-2 border">${telefone}</td>
             <td class="p-2 border">${enderecoResumido}</td>
+            <td class="p-2 border">${limite}</td>
             <td class="p-2 border">
-                <button onclick="window.editarCliente('${c.id}','${c.nome}','${c.telefone || ''}','${c.documento || ''}','${c.endereco || ''}','${c.cep || ''}')" class="text-blue-600 hover:text-blue-800 mr-2" title="Editar">
+                <button onclick="window.editarCliente('${c.id}','${c.nome}','${c.telefone || ''}','${c.documento || ''}','${c.endereco || ''}','${c.cep || ''}','${c.email || ''}','${c.nascimento || ''}','${c.limite || 0}','${c.observacoes || ''}')" class="text-blue-600 hover:text-blue-800 mr-2" title="Editar">
                     ✏️
                 </button>
                 <button onclick="window.excluirCliente('${c.id}')" class="text-red-600 hover:text-red-800" title="Excluir">
                     🗑️
                 </button>
             </td>
-        </tr>`}).join('') || '<tr><td colspan="4" class="p-4 text-center text-gray-500">Nenhum cliente encontrado</td></tr>';
+        </tr>`}).join('') || '<tr><td colspan="6" class="p-4 text-center text-gray-500">Nenhum cliente encontrado</td></tr>';
 };
 
 window.filtrarProdutos = function(termo) {
+    const termoLower = termo.toLowerCase();
     const filtrados = window.bancoProdutos.filter(p => 
-        p.descricao?.toLowerCase().includes(termo.toLowerCase())
+        p.descricao?.toLowerCase().includes(termoLower) ||
+        (p.categoria && p.categoria.toLowerCase().includes(termoLower)) ||
+        (p.marca && p.marca.toLowerCase().includes(termoLower)) ||
+        (p.codigo && p.codigo.includes(termo)) ||
+        (p.codigo_barras && p.codigo_barras.includes(termo))
     );
     
-    document.getElementById('lista-produtos').innerHTML = filtrados.map(p => `
+    document.getElementById('lista-produtos').innerHTML = filtrados.map(p => {
+        let estoqueClass = '';
+        let estoqueText = '';
+        
+        if (p.estoque_atual !== undefined) {
+            if (p.estoque_atual <= 0) {
+                estoqueClass = 'text-red-600 font-bold';
+                estoqueText = 'ESGOTADO';
+            } else if (p.estoque_minimo && p.estoque_atual <= p.estoque_minimo) {
+                estoqueClass = 'text-orange-600 font-bold';
+                estoqueText = 'BAIXO';
+            } else {
+                estoqueClass = 'text-green-600';
+                estoqueText = p.estoque_atual;
+            }
+        }
+        
+        return `
         <tr class="border-b text-sm hover:bg-gray-50">
+            <td class="p-2 border font-mono font-bold">${p.codigo || '---'}</td>
             <td class="p-2 border">${p.descricao}</td>
-            <td class="p-2 border">${p.fornecedor || '-'}</td>
-            <td class="p-2 border">${formatarValorReais(p.valor_base)}</td>
+            <td class="p-2 border">${p.categoria || '-'}</td>
+            <td class="p-2 border">${p.marca || '-'}</td>
+            <td class="p-2 border font-bold">${window.formatarValorReais(p.valor_base)}</td>
+            <td class="p-2 border ${estoqueClass}">${estoqueText}</td>
             <td class="p-2 border">
-                <button onclick="window.editarProduto('${p.id}','${p.descricao}','${p.fornecedor || ''}','${p.valor_base}')" class="text-blue-600 hover:text-blue-800 mr-2">
+                <button onclick="window.editarProduto('${p.id}')" class="text-blue-600 hover:text-blue-800 mr-2" title="Editar">
                     ✏️
                 </button>
-                <button onclick="window.excluirProduto('${p.id}')" class="text-red-600 hover:text-red-800">
+                <button onclick="window.excluirProduto('${p.id}')" class="text-red-600 hover:text-red-800" title="Excluir">
                     🗑️
                 </button>
             </td>
-        </tr>`).join('') || '<tr><td colspan="4" class="p-4 text-center text-gray-500">Nenhum produto encontrado</td></tr>';
+        </tr>`}).join('') || '<tr><td colspan="7" class="p-4 text-center text-gray-500">Nenhum produto encontrado</td></tr>';
 };
 
 window.cancelarEdicaoCliente = function() {
@@ -1752,15 +1797,11 @@ window.cancelarEdicaoCliente = function() {
     document.getElementById('cli-documento').value = '';
     document.getElementById('cli-cep').value = '';
     document.getElementById('cli-endereco').value = '';
+    document.getElementById('cli-email').value = '';
+    document.getElementById('cli-nascimento').value = '';
+    document.getElementById('cli-limite').value = '0,00';
+    document.getElementById('cli-obs').value = '';
     document.getElementById('btn-cancelar-cliente').classList.add('hidden');
-};
-
-window.cancelarEdicaoProduto = function() {
-    document.getElementById('prod-id').value = '';
-    document.getElementById('prod-desc').value = '';
-    document.getElementById('prod-forn').value = '';
-    document.getElementById('prod-valor').value = '0,00';
-    document.getElementById('btn-cancelar-produto').classList.add('hidden');
 };
 
 // ==========================================
@@ -1890,9 +1931,9 @@ window.filtrarPedidos = filtrarPedidos;
 window.filtrarClientes = filtrarClientes;
 window.filtrarProdutos = filtrarProdutos;
 window.cancelarEdicaoCliente = cancelarEdicaoCliente;
-window.cancelarEdicaoProduto = cancelarEdicaoProduto;
 window.resetCompletoSistema = resetCompletoSistema;
 window.buscarCEPCadastro = buscarCEPCadastro;
 window.carregarDadosCliente = carregarDadosCliente;
 window.preencherProduto = preencherProduto;
 window.atualizarParcelas = atualizarParcelas;
+window.salvarPedidoAtual = salvarPedidoAtual;

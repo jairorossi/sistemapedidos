@@ -4,17 +4,29 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MPLEÃO - Gestão de Pedidos</title>
+    
     <!-- Tailwind CSS via CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-    <!-- Select2 para busca em selects -->
+    
+    <!-- Estilos personalizados -->
+    <link href="styles.css" rel="stylesheet">
+    
+    <!-- Select2 -->
     <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+    
     <!-- SweetAlert2 -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     
+    <!-- html2pdf -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    
+    <!-- Scripts do sistema -->
+    <script src="scripts.js"></script>
+    
     <style>
+        /* Estilos adicionais */
         .cliente-card {
             background: linear-gradient(to right, #f9fafb, #ffffff);
             border-left: 4px solid #3b82f6;
@@ -65,336 +77,70 @@
         .select2-container--default .select2-selection--single .select2-selection__arrow {
             height: 36px;
         }
+        
+        /* Estilo para os cards de produtos no modal */
+        .produto-card {
+            border: 1px solid #e5e7eb;
+            transition: all 0.2s;
+        }
+        .produto-card:hover {
+            border-color: #3b82f6;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+        .produto-card.selecionado {
+            background-color: #eff6ff;
+            border-color: #3b82f6;
+            border-width: 2px;
+        }
+        
+        /* Estoque baixo */
+        .estoque-baixo {
+            color: #f97316;
+            font-weight: bold;
+        }
+        .estoque-esgotado {
+            color: #ef4444;
+            font-weight: bold;
+        }
+        .estoque-normal {
+            color: #10b981;
+        }
+        
+        /* Scrollbar personalizada */
+        .overflow-y-auto::-webkit-scrollbar {
+            width: 8px;
+        }
+        .overflow-y-auto::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        .overflow-y-auto::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        .overflow-y-auto::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+        
+        /* Badge de código */
+        .codigo-badge {
+            background-color: #e0f2fe;
+            color: #0369a1;
+            font-size: 0.7rem;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: 600;
+        }
     </style>
-    
-    <script>
-        // ==========================================
-        // FUNÇÕES GLOBAIS
-        // ==========================================
-        
-        function mostrarAba(abaId) {
-            const abas = ['aba-cadastro', 'aba-clientes', 'aba-produtos', 'aba-logistica', 'aba-financeiro'];
-            abas.forEach(aba => document.getElementById(aba).classList.add('hidden'));
-            document.getElementById(abaId).classList.remove('hidden');
-            
-            const botoes = ['btn-cadastro', 'btn-clientes', 'btn-produtos', 'btn-logistica', 'btn-financeiro'];
-            botoes.forEach(btn => document.getElementById(btn).classList.remove('bg-gray-700'));
-            document.getElementById('btn-' + abaId.split('-')[1]).classList.add('bg-gray-700');
-            
-            if (abaId === 'aba-financeiro' && typeof window.carregarDadosFinanceiros === 'function') {
-                window.carregarDadosFinanceiros();
-            }
-        }
-
-        function adicionarLinha() {
-            if (!podeEditarPedido()) {
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Ação bloqueada',
-                    text: '❌ Não é possível adicionar itens em um pedido que já está em Produção, Em Entrega ou Entregue!',
-                    confirmButtonColor: '#3b82f6'
-                });
-                return;
-            }
-            
-            const tbody = document.getElementById('tabela-itens');
-            const linhaAdicionar = document.getElementById('linha-adicionar');
-            
-            const novaLinha = document.createElement('tr');
-            novaLinha.className = 'text-sm';
-            
-            const selectId = 'produto-select-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5);
-            
-            novaLinha.innerHTML = `
-                <td class="p-2 border"><input type="number" value="1" min="1" class="w-16 p-1 border rounded qtd-item" onchange="calcularTudo()" onkeyup="calcularTudo()"></td>
-                <td class="p-2 border">
-                    <select id="${selectId}" class="w-full p-1 border rounded desc-item border-blue-300 focus:ring-2 focus:ring-blue-500 bg-gray-50 produto-select" style="width: 100%;" onchange="window.preencherProduto(this)">
-                        <option value="">Selecione um produto</option>
-                    </select>
-                </td>
-                <td class="p-2 border">
-                    <input type="text" placeholder="Fornecedor" class="w-full p-1 border rounded forn-item bg-gray-100" readonly>
-                </td>
-                <td class="p-2 border"><input type="text" class="w-24 p-1 border rounded valor-item bg-gray-100 text-right" value="R$ 0,00" readonly></td>
-                <td class="p-2 border font-semibold total-linha">R$ 0,00</td>
-                <td class="p-2 border text-center"><button onclick="if(podeEditarPedido()) { this.closest('tr').remove(); calcularTudo(); } else { Swal.fire({ icon: 'error', title: 'Ação bloqueada', text: '❌ Não é possível remover itens de um pedido em andamento!', confirmButtonColor: '#3b82f6' }); }" class="text-red-500 font-bold hover:text-red-700">X</button></td>
-            `;
-            
-            tbody.insertBefore(novaLinha, linhaAdicionar);
-            
-            const select = document.getElementById(selectId);
-            if (select && window.bancoProdutos) {
-                window.bancoProdutos.forEach(p => {
-                    const option = document.createElement('option');
-                    option.value = p.descricao;
-                    option.setAttribute('data-valor', p.valor_base);
-                    option.setAttribute('data-forn', p.fornecedor || '');
-                    option.textContent = `${p.descricao} - ${formatarValorReais(p.valor_base)}`;
-                    select.appendChild(option);
-                });
-                
-                if ($.fn.select2) {
-                    $(select).select2({
-                        placeholder: "Busque um produto...",
-                        allowClear: true,
-                        width: '100%'
-                    });
-                }
-            }
-        }
-
-        function podeEditarPedido() {
-            const statusAtual = document.getElementById('select-status')?.value || 'Orçamento';
-            const statusBloqueados = ['Produção', 'Em Entrega', 'Entregue'];
-            return !statusBloqueados.includes(statusAtual);
-        }
-
-        // ==========================================
-        // FUNÇÕES DE FORMATAÇÃO
-        // ==========================================
-        
-        function formatarValorReais(valor) {
-            if (valor === undefined || valor === null) return 'R$ 0,00';
-            const num = typeof valor === 'string' ? parseFloat(valor) : valor;
-            if (isNaN(num)) return 'R$ 0,00';
-            return 'R$ ' + num.toFixed(2).replace('.', ',');
-        }
-
-        function formatarTelefone(input) {
-            let numero = input.value.replace(/\D/g, '');
-            
-            if (numero.length <= 10) {
-                numero = numero.replace(/^(\d{2})(\d{4})(\d{4})/, '($1) $2-$3');
-            } else {
-                numero = numero.replace(/^(\d{2})(\d{5})(\d{4})/, '($1) $2-$3');
-            }
-            
-            input.value = numero;
-        }
-
-        function formatarValorInput(input) {
-            let valor = input.value.replace(/[^\d]/g, '');
-            if (valor === '') {
-                input.value = '';
-                return;
-            }
-            
-            let numero = parseInt(valor) / 100;
-            input.value = numero.toFixed(2).replace('.', ',');
-        }
-
-        function formatarDataParaExibir(dataISO) {
-            if (!dataISO) return '-';
-            try {
-                const data = new Date(dataISO + 'T12:00:00');
-                return data.toLocaleDateString('pt-BR');
-            } catch (e) {
-                return dataISO;
-            }
-        }
-
-        // ==========================================
-        // FUNÇÕES DE CÁLCULO
-        // ==========================================
-        
-
-function calcularTudo() {
-    console.log('🔄 Executando calcularTudo()');
-    
-    const linhas = document.querySelectorAll('#tabela-itens tr:not(#linha-adicionar)');
-    console.log(`📊 ${linhas.length} linhas encontradas`);
-    
-    let subtotal = 0;
-
-    linhas.forEach((linha, index) => {
-        const qtd = parseFloat(linha.querySelector('.qtd-item')?.value) || 0;
-        const valorTexto = linha.querySelector('.valor-item')?.value || '0,00';
-        console.log(`Linha ${index + 1}: qtd=${qtd}, valorTexto=${valorTexto}`);
-        
-        const valor = parseFloat(valorTexto.replace('R$', '').replace(/\./g, '').replace(',', '.')) || 0;
-        console.log(`Linha ${index + 1}: valor numérico=${valor}`);
-        
-        const totalLinha = qtd * valor;
-        console.log(`Linha ${index + 1}: totalLinha=${totalLinha}`);
-        
-        linha.querySelector('.total-linha').innerText = formatarValorReais(totalLinha);
-        subtotal += totalLinha;
-    });
-
-    console.log(`📊 Subtotal calculado: ${subtotal}`);
-
-    const pctDesconto = parseFloat(document.getElementById('input-desconto').value.replace(',', '.')) || 0;
-    const valorDesconto = subtotal * (pctDesconto / 100);
-    const subtotalComDesconto = subtotal - valorDesconto;
-
-    const acrescimoTexto = document.getElementById('input-acrescimo').value || '0,00';
-    const acrescimo = parseFloat(acrescimoTexto.replace(/[^\d,]/g, '').replace(',', '.')) || 0;
-
-    const km = parseFloat(document.getElementById('input-km').value) || 0;
-    const precoCombustivel = parseFloat(document.getElementById('input-litro').value) || 4.20;
-    const consumo = parseFloat(document.getElementById('input-consumo').value) || 9.0;
-    
-    const custoCombustivel = km > 0 ? (km / consumo) * precoCombustivel : 0;
-    
-    let pedagio = 0;
-    const pedagioInput = document.getElementById('input-pedagio').value;
-    if (pedagioInput) {
-        pedagio = parseFloat(pedagioInput.replace(/[^\d,]/g, '').replace(',', '.')) || 0;
-    }
-    
-    const frete = custoCombustivel + pedagio;
-    
-    document.getElementById('custo-combustivel').innerText = formatarValorReais(custoCombustivel);
-    document.getElementById('custo-pedagio').innerText = formatarValorReais(pedagio);
-    document.getElementById('custo-total-frete').innerText = formatarValorReais(frete);
-    document.getElementById('display-frete-estimado').value = formatarValorReais(frete);
-
-    const formaPgto = document.getElementById('select-pagamento').value;
-    let taxaCartao = 0;
-    if (formaPgto === 'Cartão de Crédito') {
-        taxaCartao = (subtotalComDesconto + frete + acrescimo) * 0.05; 
-        document.getElementById('info-taxa').innerText = `Taxa Maquininha (5%): ${formatarValorReais(taxaCartao)}`;
-        document.getElementById('info-taxa').classList.remove('hidden');
-    } else {
-        document.getElementById('info-taxa').classList.add('hidden');
-    }
-
-    const totalGeral = subtotalComDesconto + frete + taxaCartao + acrescimo;
-
-    document.getElementById('display-subtotal').innerText = 'Subtotal: ' + formatarValorReais(subtotal);
-    document.getElementById('display-desconto').innerText = 'Desconto: - ' + formatarValorReais(valorDesconto);
-    document.getElementById('display-acrescimo').innerText = 'Acréscimo: + ' + formatarValorReais(acrescimo);
-    document.getElementById('display-frete-final').innerText = 'Frete: ' + formatarValorReais(frete);
-    
-    const displayTaxa = document.getElementById('display-taxa-final');
-    if (taxaCartao > 0) {
-        displayTaxa.innerText = 'Taxa Cartão: ' + formatarValorReais(taxaCartao);
-        displayTaxa.classList.remove('hidden');
-    } else {
-        displayTaxa.classList.add('hidden');
-    }
-
-    document.getElementById('display-total').innerText = 'Total: ' + formatarValorReais(totalGeral);
-    document.getElementById('btn-gerar-pdf').setAttribute('data-total', totalGeral.toFixed(2).replace('.', ','));
-    
-    console.log(`✅ Total calculado: ${totalGeral}`);
-}
-
-        function gerarPDF() {
-            const btn = document.getElementById('btn-gerar-pdf');
-            const textoOriginal = btn.innerHTML;
-            btn.innerHTML = '✨ Gerando PDF...';
-
-            const numeroExibicao = document.getElementById('pdf-n-display').innerText || 'NOVO';
-            const cliente = document.getElementById('input-cliente').value || 'Não informado';
-            const endereco = document.getElementById('input-endereco').value || 'Não informado';
-            const previsao = document.getElementById('input-previsao').value || 'A combinar';
-            const dataAtual = new Date().toLocaleDateString('pt-BR');
-            const totalGeral = btn.getAttribute('data-total') || '0,00';
-
-            let linhasHtml = '';
-            document.querySelectorAll('#tabela-itens tr:not(#linha-adicionar)').forEach(linha => {
-                const qtd = linha.querySelector('.qtd-item')?.value || '0';
-                const select = linha.querySelector('.desc-item');
-                const desc = select ? select.options[select.selectedIndex]?.text.split(' - ')[0] : '';
-                const total = linha.querySelector('.total-linha')?.innerText || 'R$ 0,00';
-                
-                if(desc) {
-                    linhasHtml += `
-                        <tr style="border-bottom: 1px solid #ddd;">
-                            <td style="padding: 8px; text-align: center; border: 1px solid #ddd;">${qtd}</td>
-                            <td style="padding: 8px; border: 1px solid #ddd;">${desc}</td>
-                            <td style="padding: 8px; text-align: right; font-weight: bold; border: 1px solid #ddd;">${total}</td>
-                        </tr>`;
-                }
-            });
-
-            const conteudoCompleto = `
-                <div style="padding: 30px; font-family: Arial, sans-serif; color: #333; line-height: 1.4; max-width: 800px; margin: 0 auto;">
-                    <div style="display: flex; justify-content: space-between; border-bottom: 2px solid #999; padding-bottom: 10px; margin-bottom: 20px;">
-                        <div>
-                            <h1 style="margin: 0; font-size: 24px; color: #333;">MPLEÃO</h1>
-                            <p style="margin: 0; font-size: 11px; color: #666;">Serralheria & Vidraçaria</p>
-                        </div>
-                        <div style="text-align: right;">
-                            <h2 style="margin: 0; font-size: 18px; color: #333;">PEDIDO ${numeroExibicao}</h2>
-                            <p style="margin: 0; font-size: 11px; color: #666;">Data: ${dataAtual}</p>
-                        </div>
-                    </div>
-
-                    <div style="background: #f5f5f5; padding: 15px; border-radius: 5px; margin-bottom: 25px; font-size: 13px; border: 1px solid #ddd;">
-                        <p style="margin: 5px 0;"><strong>Cliente:</strong> ${cliente}</p>
-                        <p style="margin: 5px 0;"><strong>Endereço:</strong> ${endereco}</p>
-                        <p style="margin: 5px 0;"><strong>Previsão de Entrega:</strong> ${previsao}</p>
-                    </div>
-
-                    <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px; font-size: 13px; border: 1px solid #ddd;">
-                        <thead>
-                            <tr style="background: #e0e0e0; color: #333; text-align: left;">
-                                <th style="padding: 10px; border: 1px solid #ddd; width: 50px; text-align: center;">Qtd</th>
-                                <th style="padding: 10px; border: 1px solid #ddd;">Descrição</th>
-                                <th style="padding: 10px; border: 1px solid #ddd; width: 120px; text-align: right;">Total</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${linhasHtml || '<tr><td colspan="3" style="padding: 20px; text-align: center; border: 1px solid #ddd; color: #666;">Nenhum item adicionado</td></tr>'}
-                        </tbody>
-                    </table>
-
-                    <div style="text-align: right; margin-bottom: 50px;">
-                        <div style="display: inline-block; background: #f0f0f0; padding: 15px 25px; border-radius: 5px; border: 1px solid #999;">
-                            <span style="font-size: 11px; text-transform: uppercase; display: block; color: #666;">Total a Pagar</span>
-                            <strong style="font-size: 22px; color: #000;">R$ ${totalGeral}</strong>
-                        </div>
-                    </div>
-
-                    <div style="margin-top: 80px; display: flex; justify-content: space-between;">
-                        <div style="width: 40%; border-top: 1px solid #999; text-align: center; padding-top: 8px; font-size: 11px; color: #666;">Assinatura MPLEÃO</div>
-                        <div style="width: 40%; border-top: 1px solid #999; text-align: center; padding-top: 8px; font-size: 11px; color: #666;">Assinatura do Cliente</div>
-                    </div>
-                </div>
-            `;
-
-            const opcoes = {
-                margin: 10,
-                filename: `Pedido_${cliente.replace(/\s+/g, '_')}.pdf`,
-                image: { type: 'jpeg', quality: 0.95 },
-                html2canvas: { scale: 1.5, logging: false, letterRendering: true },
-                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-            };
-
-            html2pdf().set(opcoes).from(conteudoCompleto).save().then(() => {
-                btn.innerHTML = textoOriginal;
-                Swal.fire({
-                    icon: 'success',
-                    title: 'PDF Gerado!',
-                    text: 'O PDF foi gerado com sucesso.',
-                    timer: 2000,
-                    showConfirmButton: false
-                });
-            }).catch(err => {
-                console.error("Erro no PDF:", err);
-                btn.innerHTML = 'Erro ao gerar';
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Erro',
-                    text: 'Erro ao gerar PDF!',
-                    confirmButtonColor: '#3b82f6'
-                });
-            });
-        }
-    </script>
 </head>
 <body class="bg-gray-100 flex flex-col md:flex-row h-screen overflow-hidden">
 
-    <datalist id="lista-sugestao-clientes"></datalist>
-    <datalist id="lista-sugestao-produtos"></datalist>
-
+    <!-- SIDEBAR -->
     <aside class="w-full md:w-64 bg-gray-900 text-white flex flex-col flex-shrink-0">
         <div class="p-4 md:p-6 text-center border-b border-gray-700">
             <h1 class="text-xl md:text-2xl font-bold text-yellow-500">MPLEÃO</h1>
             <p class="text-xs text-gray-400">Sistema de Gestão</p>
         </div>
+        
         <nav class="flex flex-row md:flex-col p-4 gap-2 overflow-x-auto whitespace-nowrap">
             <button id="btn-cadastro" onclick="mostrarAba('aba-cadastro')" class="text-sm md:text-base text-left p-3 bg-gray-700 rounded hover:bg-gray-600 transition">📦 Gestão de Pedido</button>
             <button id="btn-clientes" onclick="mostrarAba('aba-clientes')" class="text-sm md:text-base text-left p-3 rounded hover:bg-gray-600 transition">👥 Clientes</button>
@@ -404,6 +150,7 @@ function calcularTudo() {
             <button onclick="window.fazerLogout()" class="mt-auto text-sm text-left p-3 text-red-400 hover:bg-gray-800 rounded transition font-bold">🚪 Encerrar Sessão</button>
         </nav>
         
+        <!-- BOTÃO DE RESET -->
         <div class="p-4 border-t border-gray-700">
             <button onclick="window.resetCompletoSistema()" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded transition flex items-center justify-center gap-2 text-sm">
                 ⚠️ RESET TOTAL
@@ -412,6 +159,7 @@ function calcularTudo() {
         </div>
     </aside>
 
+    <!-- MAIN CONTENT -->
     <main class="flex-1 overflow-y-auto p-4 md:p-8">
         
         <!-- ========== ABA 1 - GESTÃO DE PEDIDO ========== -->
@@ -426,100 +174,91 @@ function calcularTudo() {
                 </div>
             </div>
             
- <!-- ========== BLOCO CLIENTE (lado esquerdo) ========== -->
-<div class="bg-white p-4 md:p-6 rounded-lg shadow-sm cliente-card">
-    <h3 class="text-lg font-semibold mb-4 text-gray-700 flex items-center gap-2">
-        👤 Dados do Cliente
-    </h3>
-    
-    <div class="mb-4">
-        <label class="text-xs text-gray-500 mb-1 block">🔍 Selecione o Cliente</label>
-        <select id="input-cliente" class="w-full p-2 border rounded bg-gray-50 border-blue-300 focus:ring-2 focus:ring-blue-500 cliente-select" onchange="window.carregarDadosCliente()">
-            <option value="">Selecione um cliente</option>
-        </select>
-    </div>
-    
-    <div id="dados-cliente-container" class="hidden space-y-2 p-4 bg-gray-50 rounded-lg border border-gray-200">
-        <div class="grid grid-cols-2 gap-2 text-sm">
-            <span class="font-medium text-gray-600">Telefone:</span>
-            <span id="cliente-telefone" class="text-gray-800">-</span>
-            
-            <span class="font-medium text-gray-600">Documento:</span>
-            <span id="cliente-documento" class="text-gray-800">-</span>
-            
-            <span class="font-medium text-gray-600">Endereço:</span>
-            <span id="cliente-endereco" class="text-gray-800">-</span>
-            
-            <span class="font-medium text-gray-600">CEP:</span>
-            <span id="cliente-cep" class="text-gray-800">-</span>
-        </div>
-    </div>
-    
-    <input type="hidden" id="input-endereco">
-</div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- BLOCO CLIENTE -->
+                <div class="bg-white p-4 md:p-6 rounded-lg shadow-sm cliente-card">
+                    <h3 class="text-lg font-semibold mb-4 text-gray-700 flex items-center gap-2">
+                        👤 Dados do Cliente
+                    </h3>
+                    
+                    <div class="mb-4">
+                        <label class="text-xs text-gray-500 mb-1 block">🔍 Selecione o Cliente</label>
+                        <select id="input-cliente" class="w-full p-2 border rounded bg-gray-50 border-blue-300 focus:ring-2 focus:ring-blue-500 cliente-select" onchange="window.carregarDadosCliente()">
+                            <option value="">Selecione um cliente</option>
+                        </select>
+                    </div>
+                    
+                    <div id="dados-cliente-container" class="hidden space-y-2 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                        <div class="grid grid-cols-2 gap-2 text-sm">
+                            <span class="font-medium text-gray-600">Telefone:</span>
+                            <span id="cliente-telefone" class="text-gray-800">-</span>
+                            
+                            <span class="font-medium text-gray-600">Documento:</span>
+                            <span id="cliente-documento" class="text-gray-800">-</span>
+                            
+                            <span class="font-medium text-gray-600">Endereço:</span>
+                            <span id="cliente-endereco" class="text-gray-800">-</span>
+                            
+                            <span class="font-medium text-gray-600">CEP:</span>
+                            <span id="cliente-cep" class="text-gray-800">-</span>
+                        </div>
+                    </div>
+                    
+                    <input type="hidden" id="input-endereco">
+                </div>
 
-<!-- ========== BLOCO FRETE (LAYOUT SUPER COMPACTO) ========== -->
-<!-- ========== BLOCO FRETE (LAYOT BALANCEADO) ========== -->
-<div class="bg-white p-4 md:p-6 rounded-lg shadow-sm">
-    <h3 class="text-lg font-semibold mb-4 text-gray-700 flex items-center gap-2">
-        🚚 Cálculo de Frete (Manual)
-    </h3>
-    
-    <!-- Layout com 50% inputs / 50% resultados -->
-    <div class="flex flex-wrap items-end gap-2">
-        <!-- Inputs (ocupam cerca de 50%) -->
-        <div class="flex flex-wrap gap-2 flex-1 min-w-[300px]">
-            <!-- Distância -->
-            <div class="w-20">
-                <label class="text-xs text-gray-500 mb-1 block">📏 KM</label>
-                <input type="number" id="input-km" value="0" step="0.1" class="w-full p-2 border rounded bg-gray-50 focus:ring-2 focus:ring-blue-500 text-sm" onchange="calcularTudo()" onkeyup="calcularTudo()" placeholder="200">
-            </div>
-            
-            <!-- Combustível -->
-            <div class="w-20">
-                <label class="text-xs text-gray-500 mb-1 block">⛽ R$/L</label>
-                <input type="number" id="input-litro" value="4.20" step="0.01" class="w-full p-2 border rounded bg-gray-50 focus:ring-2 focus:ring-blue-500 text-sm" onchange="calcularTudo()" onkeyup="calcularTudo()" placeholder="4,20">
-            </div>
-            
-            <!-- Consumo -->
-            <div class="w-20">
-                <label class="text-xs text-gray-500 mb-1 block">⚡ km/l</label>
-                <input type="number" id="input-consumo" value="9.0" step="0.1" class="w-full p-2 border rounded bg-gray-50 focus:ring-2 focus:ring-blue-500 text-sm" onchange="calcularTudo()" onkeyup="calcularTudo()" placeholder="9,0">
-            </div>
-            
-            <!-- Pedágio -->
-            <div class="w-20">
-                <label class="text-xs text-gray-500 mb-1 block">🛣️ Pedágio</label>
-                <input type="text" id="input-pedagio" value="0,00" class="w-full p-2 border rounded bg-gray-50 focus:ring-2 focus:ring-blue-500 text-right text-sm" onchange="calcularTudo()" onkeyup="formatarValorInput(this); calcularTudo()" placeholder="0,00">
-            </div>
-        </div>
-        
-        <!-- Resultados (ocupam cerca de 50%) -->
-        <div class="bg-blue-50 p-2 rounded-lg border border-blue-200 w-[250px]">
-            <div class="grid grid-cols-3 gap-1">
-                <div class="text-center">
-                    <span class="text-gray-600 text-xs">Combustível</span>
-                    <span class="font-medium text-blue-800 block text-sm" id="custo-combustivel">R$ 0,00</span>
+                <!-- BLOCO FRETE -->
+                <div class="bg-white p-4 md:p-6 rounded-lg shadow-sm">
+                    <h3 class="text-lg font-semibold mb-4 text-gray-700 flex items-center gap-2">
+                        🚚 Cálculo de Frete (Manual)
+                    </h3>
+                    
+                    <div class="flex flex-wrap items-end gap-2">
+                        <div class="flex flex-wrap gap-2 flex-1 min-w-[300px]">
+                            <div class="w-20">
+                                <label class="text-xs text-gray-500 mb-1 block">📏 KM</label>
+                                <input type="number" id="input-km" value="0" step="0.1" class="w-full p-2 border rounded bg-gray-50 focus:ring-2 focus:ring-blue-500 text-sm" onchange="calcularTudo()" onkeyup="calcularTudo()" placeholder="200">
+                            </div>
+                            
+                            <div class="w-20">
+                                <label class="text-xs text-gray-500 mb-1 block">⛽ R$/L</label>
+                                <input type="number" id="input-litro" value="4.20" step="0.01" class="w-full p-2 border rounded bg-gray-50 focus:ring-2 focus:ring-blue-500 text-sm" onchange="calcularTudo()" onkeyup="calcularTudo()" placeholder="4,20">
+                            </div>
+                            
+                            <div class="w-20">
+                                <label class="text-xs text-gray-500 mb-1 block">⚡ km/l</label>
+                                <input type="number" id="input-consumo" value="9.0" step="0.1" class="w-full p-2 border rounded bg-gray-50 focus:ring-2 focus:ring-blue-500 text-sm" onchange="calcularTudo()" onkeyup="calcularTudo()" placeholder="9,0">
+                            </div>
+                            
+                            <div class="w-20">
+                                <label class="text-xs text-gray-500 mb-1 block">🛣️ Pedágio</label>
+                                <input type="text" id="input-pedagio" value="0,00" class="w-full p-2 border rounded bg-gray-50 focus:ring-2 focus:ring-blue-500 text-right text-sm" onchange="calcularTudo()" onkeyup="formatarValorInput(this); calcularTudo()" placeholder="0,00">
+                            </div>
+                        </div>
+                        
+                        <div class="bg-blue-50 p-2 rounded-lg border border-blue-200 w-[250px]">
+                            <div class="grid grid-cols-3 gap-1">
+                                <div class="text-center">
+                                    <span class="text-gray-600 text-xs">Combustível</span>
+                                    <span class="font-medium text-blue-800 block text-sm" id="custo-combustivel">R$ 0,00</span>
+                                </div>
+                                <div class="text-center border-l border-blue-200">
+                                    <span class="text-gray-600 text-xs">Pedágio</span>
+                                    <span class="font-medium text-blue-800 block text-sm" id="custo-pedagio">R$ 0,00</span>
+                                </div>
+                                <div class="text-center border-l border-blue-200">
+                                    <span class="text-gray-600 text-xs">Total</span>
+                                    <span class="font-bold text-blue-900 block text-sm" id="custo-total-frete">R$ 0,00</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <input type="hidden" id="display-frete-estimado">
                 </div>
-                <div class="text-center border-l border-blue-200">
-                    <span class="text-gray-600 text-xs">Pedágio</span>
-                    <span class="font-medium text-blue-800 block text-sm" id="custo-pedagio">R$ 0,00</span>
-                </div>
-                <div class="text-center border-l border-blue-200">
-                    <span class="text-gray-600 text-xs">Total</span>
-                    <span class="font-bold text-blue-900 block text-sm" id="custo-total-frete">R$ 0,00</span>
-                </div>
-            </div>
-        </div>
-    </div>
-    
-    <input type="hidden" id="display-frete-estimado">
-</div>
-<!-- fim bloco exibir frete --> 
-				
-				</div>
             </div>
 
+            <!-- CONTROLE DO PEDIDO -->
             <div class="bg-white p-4 md:p-6 rounded-lg shadow-sm">
                 <h3 class="text-lg font-semibold mb-4 text-gray-700">📋 Controle do Pedido</h3>
                 
@@ -570,12 +309,12 @@ function calcularTudo() {
                     <div class="space-y-4">
                         <div>
                             <label class="text-xs text-gray-500">📅 Previsão de Entrega</label>
-                            <input type="date" id="input-previsao" class="w-full p-2 border rounded bg-gray-50 mt-1">
+                            <input type="date" id="input-previsao" class="w-full p-2 border rounded bg-gray-50 focus:ring-2 focus:ring-blue-500 mt-1">
                         </div>
                         
                         <div>
                             <label class="text-xs text-gray-500">💰 Condição de Pagamento</label>
-                            <select id="select-condicao-pagamento" class="w-full p-2 border rounded bg-gray-50 mt-1" onchange="atualizarParcelas()">
+                            <select id="select-condicao-pagamento" class="w-full p-2 border rounded bg-gray-50 focus:ring-2 focus:ring-blue-500 mt-1" onchange="atualizarParcelas()">
                                 <option value="Vista">À Vista</option>
                                 <option value="2x">2x sem juros</option>
                                 <option value="3x">3x sem juros</option>
@@ -588,17 +327,17 @@ function calcularTudo() {
                         
                         <div id="div-parcelas-personalizado" class="hidden">
                             <label class="text-xs text-gray-500">Número de Parcelas</label>
-                            <input type="number" id="input-parcelas" value="1" min="1" max="24" class="w-full p-2 border rounded bg-gray-50 mt-1" onchange="atualizarParcelas()">
+                            <input type="number" id="input-parcelas" value="1" min="1" max="24" class="w-full p-2 border rounded bg-gray-50 focus:ring-2 focus:ring-blue-500 mt-1" onchange="atualizarParcelas()">
                         </div>
                         
                         <div>
                             <label class="text-xs text-gray-500">📆 Primeiro Vencimento</label>
-                            <input type="date" id="input-primeiro-vencimento" class="w-full p-2 border rounded bg-gray-50 mt-1">
+                            <input type="date" id="input-primeiro-vencimento" class="w-full p-2 border rounded bg-gray-50 focus:ring-2 focus:ring-blue-500 mt-1">
                         </div>
                         
                         <div>
                             <label class="text-xs text-gray-500">💳 Forma de Pagamento</label>
-                            <select id="select-pagamento" class="w-full p-2 border rounded bg-gray-50 mt-1" onchange="calcularTudo()">
+                            <select id="select-pagamento" class="w-full p-2 border rounded bg-gray-50 focus:ring-2 focus:ring-blue-500 mt-1" onchange="calcularTudo()">
                                 <option value="Pix">Pix</option>
                                 <option value="Dinheiro">Dinheiro</option>
                                 <option value="Cartão de Crédito">Cartão de Crédito</option>
@@ -612,8 +351,14 @@ function calcularTudo() {
                 </div>
             </div>
 
+            <!-- TABELA DE ITENS -->
             <div class="bg-white p-4 md:p-6 rounded-lg shadow-sm">
-                <h3 class="text-lg font-semibold mb-4 text-gray-700">🛒 Itens do Pedido</h3>
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-semibold text-gray-700">🛒 Itens do Pedido</h3>
+                    <button onclick="window.abrirModalItens()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition text-sm font-bold flex items-center gap-2">
+                        ➕ Adicionar Itens
+                    </button>
+                </div>
                 <div class="overflow-x-auto">
                     <table class="w-full text-left border-collapse min-w-[600px]">
                         <thead>
@@ -627,11 +372,17 @@ function calcularTudo() {
                             </tr>
                         </thead>
                         <tbody id="tabela-itens">
+                            <tr>
+                                <td colspan="6" class="p-4 text-center text-gray-500">
+                                    Nenhum item adicionado. Clique em "Adicionar Itens" para começar.
+                                </td>
+                            </tr>
                         </tbody>
                     </table>
                 </div>
             </div>
 
+            <!-- RODAPÉ COM BOTÕES -->
             <div class="bg-white p-4 md:p-6 rounded-lg shadow-sm">
                 <div class="flex flex-col md:flex-row justify-between items-start gap-6">
                     <div class="w-full md:w-1/2 space-y-4">
@@ -640,18 +391,18 @@ function calcularTudo() {
                         <div class="grid grid-cols-2 gap-4">
                             <div>
                                 <label class="text-xs text-gray-500">Desconto (%)</label>
-                                <input type="number" id="input-desconto" value="0" min="0" class="w-full p-2 border rounded bg-gray-50" onchange="calcularTudo()" onkeyup="calcularTudo()">
+                                <input type="number" id="input-desconto" value="0" min="0" class="w-full p-2 border rounded bg-gray-50 focus:ring-2 focus:ring-blue-500" onchange="calcularTudo()" onkeyup="calcularTudo()">
                             </div>
                             
                             <div>
                                 <label class="text-xs text-gray-500">Acréscimo (R$)</label>
-                                <input type="text" id="input-acrescimo" value="0,00" class="w-full p-2 border rounded bg-gray-50 text-right" onchange="calcularTudo()" onkeyup="formatarValorInput(this); calcularTudo()">
+                                <input type="text" id="input-acrescimo" value="0,00" class="w-full p-2 border rounded bg-gray-50 focus:ring-2 focus:ring-blue-500 text-right" onchange="calcularTudo()" onkeyup="formatarValorInput(this); calcularTudo()">
                             </div>
                         </div>
                         
                         <div>
                             <label class="text-xs text-gray-500">Motivo do acréscimo</label>
-                            <input type="text" id="input-motivo-acrescimo" placeholder="Ex: 5 fechaduras extras..." class="w-full p-2 border rounded bg-gray-50">
+                            <input type="text" id="input-motivo-acrescimo" placeholder="Ex: 5 fechaduras extras..." class="w-full p-2 border rounded bg-gray-50 focus:ring-2 focus:ring-blue-500">
                         </div>
                     </div>
                     
@@ -697,32 +448,53 @@ function calcularTudo() {
                     
                     <div>
                         <label class="text-sm text-gray-600">Nome Completo / Razão Social *</label>
-                        <input type="text" id="cli-nome" class="w-full p-2 border rounded bg-gray-50" required>
+                        <input type="text" id="cli-nome" class="w-full p-2 border rounded bg-gray-50 focus:ring-2 focus:ring-blue-500" required>
                     </div>
                     
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label class="text-sm text-gray-600">Telefone / WhatsApp</label>
-                            <input type="text" id="cli-telefone" class="w-full p-2 border rounded bg-gray-50" placeholder="(17) 99999-9999" onkeyup="formatarTelefone(this)">
+                            <input type="text" id="cli-telefone" class="w-full p-2 border rounded bg-gray-50 focus:ring-2 focus:ring-blue-500" placeholder="(17) 99999-9999" onkeyup="formatarTelefone(this)">
                         </div>
                         <div>
                             <label class="text-sm text-gray-600">CPF / CNPJ</label>
-                            <input type="text" id="cli-documento" class="w-full p-2 border rounded bg-gray-50">
+                            <input type="text" id="cli-documento" class="w-full p-2 border rounded bg-gray-50 focus:ring-2 focus:ring-blue-500">
                         </div>
                     </div>
                     
                     <div>
                         <label class="text-sm text-gray-600">CEP</label>
                         <div class="flex gap-2">
-                            <input type="text" id="cli-cep" class="w-40 p-2 border rounded bg-gray-50" placeholder="00000-000" maxlength="9" onkeyup="formatarCEP(this)">
-                            <button type="button" onclick="buscarCEPCadastro()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition text-sm">🔍 Buscar</button>
+                            <input type="text" id="cli-cep" class="w-40 p-2 border rounded bg-gray-50 focus:ring-2 focus:ring-blue-500" placeholder="00000-000" maxlength="9" onkeyup="formatarCEP(this)">
+                            <button type="button" onclick="window.buscarCEPCadastro()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition text-sm">🔍 Buscar</button>
                         </div>
                         <p id="cep-status-cadastro" class="text-xs mt-1 text-gray-500"></p>
                     </div>
                     
                     <div>
                         <label class="text-sm text-gray-600">Endereço Completo</label>
-                        <input type="text" id="cli-endereco" class="w-full p-2 border rounded bg-gray-50" placeholder="Rua, número, bairro, cidade/UF">
+                        <input type="text" id="cli-endereco" class="w-full p-2 border rounded bg-gray-50 focus:ring-2 focus:ring-blue-500" placeholder="Rua, número, bairro, cidade/UF">
+                    </div>
+                    
+                    <div>
+                        <label class="text-sm text-gray-600">Email</label>
+                        <input type="email" id="cli-email" class="w-full p-2 border rounded bg-gray-50 focus:ring-2 focus:ring-blue-500" placeholder="cliente@email.com">
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="text-sm text-gray-600">Data de Nascimento</label>
+                            <input type="date" id="cli-nascimento" class="w-full p-2 border rounded bg-gray-50 focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label class="text-sm text-gray-600">Limite de Crédito (R$)</label>
+                            <input type="text" id="cli-limite" value="0,00" class="w-full p-2 border rounded bg-gray-50 focus:ring-2 focus:ring-blue-500 text-right" onkeyup="formatarValorInput(this)">
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <label class="text-sm text-gray-600">Observações</label>
+                        <textarea id="cli-obs" class="w-full p-2 border rounded bg-gray-50 focus:ring-2 focus:ring-blue-500" rows="2"></textarea>
                     </div>
                     
                     <div class="pt-4 flex gap-2 justify-end">
@@ -740,14 +512,16 @@ function calcularTudo() {
                         <table class="w-full text-left border-collapse">
                             <thead>
                                 <tr class="bg-gray-100 text-gray-600 text-sm">
+                                    <th class="p-2 border">Código</th>
                                     <th class="p-2 border">Nome</th>
                                     <th class="p-2 border">Telefone</th>
                                     <th class="p-2 border">Endereço</th>
+                                    <th class="p-2 border">Limite</th>
                                     <th class="p-2 border">Ações</th>
                                 </tr>
                             </thead>
                             <tbody id="lista-clientes" class="text-sm">
-                                <tr><td colspan="4" class="p-4 text-center text-gray-500">Carregando...</td></tr>
+                                <tr><td colspan="6" class="p-4 text-center text-gray-500">Carregando...</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -759,45 +533,33 @@ function calcularTudo() {
         <div id="aba-produtos" class="hidden space-y-6">
             <h2 class="text-2xl md:text-3xl font-bold text-gray-800 border-b pb-2">🏷️ Gestão de Produtos</h2>
             <div class="bg-white p-4 md:p-6 rounded-lg shadow-sm">
-                <h3 class="text-lg font-semibold mb-4 text-gray-700">Novo Produto</h3>
-                <div class="space-y-4 max-w-2xl">
-                    <input type="hidden" id="prod-id" value="">
-                    <div>
-                        <label class="text-sm text-gray-600">Descrição do Produto *</label>
-                        <input type="text" id="prod-desc" class="w-full p-2 border rounded bg-gray-50" required>
-                    </div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label class="text-sm text-gray-600">Fornecedor</label>
-                            <input type="text" id="prod-forn" class="w-full p-2 border rounded bg-gray-50">
-                        </div>
-                        <div>
-                            <label class="text-sm text-gray-600">Valor Unitário (R$)</label>
-                            <input type="text" id="prod-valor" class="w-full p-2 border rounded bg-gray-50 text-right" onkeyup="formatarValorInput(this)" value="0,00">
-                        </div>
-                    </div>
-                    <div class="pt-4 flex gap-2 justify-end">
-                        <button id="btn-cancelar-produto" class="hidden bg-gray-500 text-white font-bold py-2 px-4 rounded hover:bg-gray-600 transition" onclick="window.cancelarEdicaoProduto()">Cancelar</button>
-                        <button id="btn-salvar-produto" class="bg-blue-600 text-white font-bold py-2 px-6 rounded hover:bg-blue-700 transition">💾 Salvar Produto</button>
-                    </div>
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-lg font-semibold text-gray-700">Cadastro de Produtos</h3>
+                    <button onclick="window.abrirCadastroCompletoProduto()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition text-sm font-bold flex items-center gap-2">
+                        ➕ Novo Produto
+                    </button>
                 </div>
-                <div class="mt-8 border-t pt-6">
+                
+                <div class="mt-8">
                     <div class="flex justify-between items-center mb-4">
                         <h3 class="text-lg font-semibold text-gray-700">Produtos Cadastrados</h3>
-                        <input type="text" placeholder="🔍 Buscar produto..." class="p-2 border rounded border-gray-300 w-64 text-sm outline-none focus:border-blue-500" onkeyup="window.filtrarProdutos(this.value)">
+                        <input type="text" placeholder="🔍 Buscar por código, nome ou categoria..." class="p-2 border rounded border-gray-300 w-80 text-sm outline-none focus:border-blue-500" onkeyup="window.filtrarProdutos(this.value)">
                     </div>
                     <div class="overflow-x-auto">
                         <table class="w-full text-left border-collapse">
                             <thead>
                                 <tr class="bg-gray-100 text-gray-600 text-sm">
+                                    <th class="p-2 border">Código</th>
                                     <th class="p-2 border">Descrição</th>
-                                    <th class="p-2 border">Fornecedor</th>
-                                    <th class="p-2 border">Valor</th>
+                                    <th class="p-2 border">Categoria</th>
+                                    <th class="p-2 border">Marca</th>
+                                    <th class="p-2 border">Preço</th>
+                                    <th class="p-2 border">Estoque</th>
                                     <th class="p-2 border">Ações</th>
                                 </tr>
                             </thead>
                             <tbody id="lista-produtos" class="text-sm">
-                                <tr><td colspan="4" class="p-4 text-center text-gray-500">Carregando...</td></tr>
+                                <tr><td colspan="7" class="p-4 text-center text-gray-500">Carregando...</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -814,7 +576,7 @@ function calcularTudo() {
                         <h3 class="text-lg font-semibold text-gray-700">Consulta Geral</h3>
                         <p class="text-xs text-gray-500">Busque qualquer pedido para visualizar ou imprimir.</p>
                     </div>
-                    <input type="text" placeholder="🔍 Buscar por cliente..." class="p-2 border rounded border-gray-300 w-full md:w-80 text-sm outline-none focus:border-blue-500 shadow-sm" onkeyup="window.filtrarPedidos(this.value)">
+                    <input type="text" placeholder="🔍 Buscar por cliente..." class="p-2 border rounded border-gray-300 w-full md:w-80 text-sm outline-none focus:border-blue-500" onkeyup="window.filtrarPedidos(this.value)">
                 </div>
                 <div class="overflow-x-auto">
                     <table class="w-full text-left border-collapse min-w-[700px]">
@@ -841,6 +603,7 @@ function calcularTudo() {
         <div id="aba-financeiro" class="hidden space-y-6">
             <h2 class="text-2xl md:text-3xl font-bold text-gray-800 border-b pb-2">💰 Módulo Financeiro</h2>
             
+            <!-- Cards de Resumo -->
             <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div class="bg-white p-4 rounded-lg shadow-sm financeiro-card border-l-4 border-blue-500">
                     <p class="text-xs text-gray-500 uppercase">Total a Receber</p>
@@ -867,6 +630,7 @@ function calcularTudo() {
                 </div>
             </div>
             
+            <!-- Filtros -->
             <div class="bg-white p-4 rounded-lg shadow-sm">
                 <div class="flex flex-col md:flex-row justify-between items-center gap-4">
                     <div class="flex gap-2">
@@ -886,6 +650,7 @@ function calcularTudo() {
                 </div>
             </div>
             
+            <!-- Tabela de Parcelas -->
             <div class="bg-white p-4 md:p-6 rounded-lg shadow-sm">
                 <h3 class="text-lg font-semibold mb-4 text-gray-700">📋 Contas a Receber</h3>
                 <div class="overflow-x-auto">
@@ -909,6 +674,7 @@ function calcularTudo() {
                 </div>
             </div>
             
+            <!-- Gráfico de Previsão -->
             <div class="bg-white p-4 md:p-6 rounded-lg shadow-sm">
                 <h3 class="text-lg font-semibold mb-4 text-gray-700">📊 Previsão de Recebimento</h3>
                 <div class="grid grid-cols-1 md:grid-cols-6 gap-2 h-40 items-end" id="grafico-previsao">
@@ -939,1942 +705,54 @@ function calcularTudo() {
                 </div>
             </div>
         </div>
+        
+        <!-- MODAL DE ADICIONAR ITENS -->
+        <div id="modal-itens" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden flex items-center justify-center z-50">
+            <div class="bg-white rounded-lg shadow-xl w-full max-w-3xl max-h-[80vh] overflow-hidden">
+                <div class="p-4 bg-gray-50 border-b flex justify-between items-center">
+                    <h3 class="text-lg font-semibold text-gray-800">➕ Adicionar Itens ao Pedido</h3>
+                    <button onclick="fecharModalItens()" class="text-gray-500 hover:text-gray-700">
+                        <span class="text-2xl">&times;</span>
+                    </button>
+                </div>
+                
+                <div class="p-4 overflow-y-auto" style="max-height: calc(80vh - 120px);">
+                    <!-- Instruções -->
+                    <div class="mb-4 text-xs text-gray-500 bg-blue-50 p-2 rounded flex items-center gap-2">
+                        <span>⌨️</span>
+                        <span>Digite para buscar | Setas ⬆️⬇️ para navegar | ENTER para adicionar | ESC para fechar</span>
+                    </div>
+                    
+                    <!-- Campo de busca -->
+                    <div class="mb-4">
+                        <input type="text" id="busca-produtos-modal" placeholder="🔍 Buscar por código, nome, categoria, cor ou código de barras..." class="w-full p-3 border rounded border-gray-300 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200" onkeyup="window.filtrarProdutosModal(this.value)">
+                    </div>
+                    
+                    <!-- Lista de produtos disponíveis -->
+                    <div id="lista-produtos-modal" class="space-y-2">
+                        <!-- Será preenchido via JavaScript -->
+                    </div>
+                </div>
+                
+                <div class="p-4 bg-gray-50 border-t flex justify-between items-center">
+                    <div>
+                        <span id="total-produtos-selecionados" class="text-sm text-gray-600">0 produtos selecionados</span>
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="fecharModalItens()" class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 transition">
+                            Cancelar
+                        </button>
+                        <button onclick="adicionarProdutosSelecionados()" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition">
+                            Adicionar Selecionados
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
     </main>
 
-    <!-- ========================================== -->
-    <!-- SCRIPTS FIREBASE -->
-    <!-- ========================================== -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getFirestore, collection, addDoc, serverTimestamp, getDocs, doc, updateDoc, deleteDoc, runTransaction, writeBatch } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-
-        const firebaseConfig = {
-            apiKey: "AIzaSyBb8UGRV8qcjV6-_kd7WucWhoJBKSHcUac",
-            authDomain: "mpleaoerp.firebaseapp.com",
-            projectId: "mpleaoerp",
-            storageBucket: "mpleaoerp.firebasestorage.app",
-            messagingSenderId: "806362757682",
-            appId: "1:806362757682:web:3cefbea0483af0ef251a2b"
-        };
-
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
-        const auth = getAuth(app);
-
-        // ==========================================
-        // PROTEÇÃO DE ACESSO
-        // ==========================================
-        let loginVerificado = false;
-
-        onAuthStateChanged(auth, (user) => {
-            if (!user) {
-                window.location.replace('login.html');
-            } else {
-                localStorage.setItem('userLogged', 'true');
-                if (!loginVerificado) {
-                    loginVerificado = true;
-                    carregarMemoriaBanco();
-                }
-            }
-        });
-
-        window.fazerLogout = function() {
-            signOut(auth).then(() => window.location.replace('login.html'));
-        };
-
-        // ==========================================
-        // FUNÇÃO DE RESET COMPLETO DO SISTEMA (COM SWEETALERT)
-        // ==========================================
-        
-        window.resetCompletoSistema = async function() {
-            const result = await Swal.fire({
-                title: '⚠️ ATENÇÃO!',
-                text: 'Isso vai APAGAR TODOS os dados do sistema!\n\nClientes, produtos, pedidos e parcelas serão PERMANENTEMENTE excluídos.',
-                icon: 'warning',
-                showCancelButton: true,
-                confirmButtonColor: '#dc2626',
-                cancelButtonColor: '#6b7280',
-                confirmButtonText: 'Sim, apagar tudo!',
-                cancelButtonText: 'Cancelar'
-            });
-            
-            if (!result.isConfirmed) return;
-            
-            const { value: senha } = await Swal.fire({
-                title: '🔐 Confirmação',
-                input: 'text',
-                inputLabel: 'Digite a palavra: RESETAR',
-                inputPlaceholder: 'RESETAR',
-                showCancelButton: true,
-                confirmButtonColor: '#dc2626',
-                cancelButtonColor: '#6b7280',
-                confirmButtonText: 'Confirmar',
-                cancelButtonText: 'Cancelar',
-                inputValidator: (value) => {
-                    if (value !== 'RESETAR') {
-                        return 'Palavra incorreta!';
-                    }
-                }
-            });
-            
-            if (!senha) return;
-            
-            const confirmacaoFinal = await Swal.fire({
-                title: '🚨 ÚLTIMA CHANCE!',
-                text: 'Deseja realmente APAGAR TUDO e começar do zero?',
-                icon: 'question',
-                showCancelButton: true,
-                confirmButtonColor: '#dc2626',
-                cancelButtonColor: '#6b7280',
-                confirmButtonText: 'Sim, resetar!',
-                cancelButtonText: 'Não'
-            });
-            
-            if (!confirmacaoFinal.isConfirmed) return;
-            
-            try {
-                Swal.fire({
-                    title: 'Resetando sistema...',
-                    text: 'Isso pode levar alguns segundos.',
-                    allowOutsideClick: false,
-                    didOpen: () => {
-                        Swal.showLoading();
-                    }
-                });
-                
-                const pedidosSnap = await getDocs(collection(db, "pedidos"));
-                const batchPedidos = writeBatch(db);
-                pedidosSnap.docs.forEach(doc => batchPedidos.delete(doc.ref));
-                await batchPedidos.commit();
-                
-                const clientesSnap = await getDocs(collection(db, "clientes"));
-                const batchClientes = writeBatch(db);
-                clientesSnap.docs.forEach(doc => batchClientes.delete(doc.ref));
-                await batchClientes.commit();
-                
-                const produtosSnap = await getDocs(collection(db, "produtos"));
-                const batchProdutos = writeBatch(db);
-                produtosSnap.docs.forEach(doc => batchProdutos.delete(doc.ref));
-                await batchProdutos.commit();
-                
-                const parcelasSnap = await getDocs(collection(db, "parcelas"));
-                const batchParcelas = writeBatch(db);
-                parcelasSnap.docs.forEach(doc => batchParcelas.delete(doc.ref));
-                await batchParcelas.commit();
-                
-                const contadorRef = doc(db, "configuracoes", "contador_pedidos");
-                await updateDoc(contadorRef, { ultimo_numero: 1 }).catch(async () => {
-                    await setDoc(contadorRef, { ultimo_numero: 1 });
-                });
-                
-                await Swal.fire({
-                    icon: 'success',
-                    title: 'Sistema resetado!',
-                    text: 'Todos os dados foram apagados. A página vai recarregar.',
-                    timer: 2000,
-                    showConfirmButton: false
-                });
-                
-                window.location.reload();
-                
-            } catch (error) {
-                console.error('Erro no reset:', error);
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Erro',
-                    text: 'Erro ao resetar sistema: ' + error.message,
-                    confirmButtonColor: '#3b82f6'
-                });
-            }
-        };
-
-        // ==========================================
-        // VARIÁVEIS GLOBAIS
-        // ==========================================
-        window.bancoClientes = []; 
-        window.bancoProdutos = []; 
-        window.bancoPedidos = [];
-        window.bancoParcelas = [];
-
-        // ==========================================
-        // FUNÇÕES DE CEP
-        // ==========================================
-        
-window.formatarCEP = function(input) {
-    let cep = input.value.replace(/\D/g, '');
-    if (cep.length > 5) {
-        cep = cep.substring(0,5) + '-' + cep.substring(5,8);
-    }
-    input.value = cep;
-}
-
-        window.buscarCEPCadastro = async function() {
-            const inputCEP = document.getElementById('cli-cep');
-            const statusEl = document.getElementById('cep-status-cadastro');
-            const cep = inputCEP.value.replace(/\D/g, '');
-            
-            if (cep.length !== 8) {
-                statusEl.innerHTML = '⚠️ CEP inválido (deve ter 8 dígitos)';
-                statusEl.className = 'text-xs mt-1 text-red-600';
-                return;
-            }
-            
-            statusEl.innerHTML = '🔍 Consultando...';
-            statusEl.className = 'text-xs mt-1 text-blue-600';
-            
-            try {
-                const response = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
-                const data = await response.json();
-                
-                if (data.erro) {
-                    statusEl.innerHTML = '❌ CEP não encontrado';
-                    statusEl.className = 'text-xs mt-1 text-red-600';
-                    return;
-                }
-                
-                let enderecoCompleto = data.logradouro || '';
-                if (data.bairro) enderecoCompleto += `, ${data.bairro}`;
-                enderecoCompleto += ` - ${data.localidade}/${data.uf}`;
-                
-                document.getElementById('cli-endereco').value = enderecoCompleto;
-                
-                statusEl.innerHTML = `✅ Endereço encontrado!`;
-                statusEl.className = 'text-xs mt-1 text-green-600';
-                
-            } catch (error) {
-                console.error('Erro na consulta de CEP:', error);
-                statusEl.innerHTML = '❌ Erro ao consultar CEP';
-                statusEl.className = 'text-xs mt-1 text-red-600';
-            }
-        }
-
-        // ==========================================
-        // FUNÇÃO PARA CARREGAR DADOS DO CLIENTE
-        // ==========================================
-        
-        window.carregarDadosCliente = function() {
-            const selectCliente = document.getElementById('input-cliente');
-            const nomeCliente = selectCliente ? selectCliente.value : '';
-            
-            const cliente = window.bancoClientes.find(c => c.nome === nomeCliente);
-            
-            const container = document.getElementById('dados-cliente-container');
-            const telefoneSpan = document.getElementById('cliente-telefone');
-            const documentoSpan = document.getElementById('cliente-documento');
-            const enderecoSpan = document.getElementById('cliente-endereco');
-            const cepSpan = document.getElementById('cliente-cep');
-            const inputEndereco = document.getElementById('input-endereco');
-            
-            if (cliente) {
-                container.classList.remove('hidden');
-                telefoneSpan.innerText = cliente.telefone || '-';
-                documentoSpan.innerText = cliente.documento || '-';
-                enderecoSpan.innerText = cliente.endereco || '-';
-                
-                let cep = cliente.cep || '-';
-                cepSpan.innerText = cep;
-                
-                inputEndereco.value = cliente.endereco || '';
-                
-                calcularTudo();
-            } else {
-                container.classList.add('hidden');
-                inputEndereco.value = '';
-            }
-        }
-
-        // ==========================================
-        // FUNÇÕES DE PRODUTO
-        // ==========================================
-        
-        window.preencherProduto = function(select) {
-            if (!select) return;
-            
-            const selectedOption = select.options[select.selectedIndex];
-            if (!selectedOption) return;
-            
-            const valor = selectedOption.dataset.valor;
-            const fornecedor = selectedOption.dataset.forn;
-            
-            const tr = select.closest('tr');
-            if (!tr) return;
-            
-            const valorItem = tr.querySelector('.valor-item');
-            const fornItem = tr.querySelector('.forn-item');
-            
-            if (valorItem) {
-                valorItem.value = formatarValorReais(parseFloat(valor));
-            }
-            if (fornItem) {
-                fornItem.value = fornecedor || '';
-            }
-            
-            calcularTudo();
-        }
-
-        // ==========================================
-        // FUNÇÕES FINANCEIRAS
-        // ==========================================
-        
-        window.atualizarParcelas = function() {
-            const condicao = document.getElementById('select-condicao-pagamento').value;
-            const divPersonalizado = document.getElementById('div-parcelas-personalizado');
-            
-            if (condicao === 'Personalizado') {
-                divPersonalizado.classList.remove('hidden');
-            } else {
-                divPersonalizado.classList.add('hidden');
-            }
-        }
-
-        async function gerarParcelas(pedidoId, clienteNome, valorTotal, condicao, primeiroVencimento) {
-            let numeroParcelas = 1;
-            
-            if (condicao === 'Vista') {
-                numeroParcelas = 1;
-            } else if (condicao === 'Personalizado') {
-                numeroParcelas = parseInt(document.getElementById('input-parcelas')?.value) || 1;
-            } else {
-                numeroParcelas = parseInt(condicao.replace('x', '')) || 1;
-            }
-            
-            const valorParcela = valorTotal / numeroParcelas;
-            
-            let dataVencimento = primeiroVencimento ? new Date(primeiroVencimento + 'T12:00:00') : new Date();
-            
-            for (let i = 0; i < numeroParcelas; i++) {
-                const vencimento = new Date(dataVencimento);
-                vencimento.setMonth(vencimento.getMonth() + i);
-                
-                const parcela = {
-                    pedidoId: pedidoId,
-                    cliente: clienteNome,
-                    numeroParcela: i+1,
-                    totalParcelas: numeroParcelas,
-                    vencimento: vencimento.toISOString().split('T')[0],
-                    valor: valorParcela,
-                    status: 'pendente',
-                    dataPagamento: null,
-                    dataCriacao: new Date().toISOString()
-                };
-                
-                try {
-                    await addDoc(collection(db, "parcelas"), parcela);
-                } catch (error) {
-                    console.error('Erro ao salvar parcela:', error);
-                }
-            }
-        }
-
-        window.receberParcela = async function(parcelaId) {
-            const result = await Swal.fire({
-                title: 'Confirmar recebimento',
-                text: 'Deseja marcar esta parcela como recebida?',
-                icon: 'question',
-                showCancelButton: true,
-                confirmButtonColor: '#10b981',
-                cancelButtonColor: '#6b7280',
-                confirmButtonText: 'Sim, receber',
-                cancelButtonText: 'Cancelar'
-            });
-            
-            if (!result.isConfirmed) return;
-            
-            try {
-                const parcelaRef = doc(db, "parcelas", parcelaId);
-                await updateDoc(parcelaRef, {
-                    status: 'pago',
-                    dataPagamento: new Date().toISOString().split('T')[0]
-                });
-                
-                await Swal.fire({
-                    icon: 'success',
-                    title: 'Recebido!',
-                    text: 'Parcela marcada como paga com sucesso.',
-                    timer: 2000,
-                    showConfirmButton: false
-                });
-                
-                await carregarParcelasDoFirebase();
-                window.carregarDadosFinanceiros();
-                
-            } catch (error) {
-                console.error('Erro ao receber parcela:', error);
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Erro',
-                    text: 'Erro ao registrar pagamento!',
-                    confirmButtonColor: '#3b82f6'
-                });
-            }
-        }
-
-        async function carregarParcelasDoFirebase() {
-            try {
-                const parcelasSnap = await getDocs(collection(db, "parcelas"));
-                window.bancoParcelas = parcelasSnap.docs.map(doc => ({ 
-                    firebaseId: doc.id,
-                    ...doc.data() 
-                }));
-                
-                console.log(`📊 ${window.bancoParcelas.length} parcelas carregadas`);
-                
-            } catch (error) {
-                console.error('Erro ao carregar parcelas:', error);
-                window.bancoParcelas = [];
-            }
-        }
-
-        window.carregarDadosFinanceiros = async function() {
-            await carregarParcelasDoFirebase();
-            
-            let totalReceber = 0;
-            let totalVencer = 0;
-            let totalAtrasado = 0;
-            let totalRecebidoMes = 0;
-            
-            const hoje = new Date();
-            const mesAtual = hoje.getMonth();
-            const anoAtual = hoje.getFullYear();
-            
-            const valoresPorMes = [0, 0, 0, 0, 0, 0];
-            
-            window.bancoParcelas.forEach(parcela => {
-                const valor = parseFloat(parcela.valor) || 0;
-                const vencimento = new Date(parcela.vencimento + 'T12:00:00');
-                const diasAteVencimento = Math.ceil((vencimento - hoje) / (1000 * 60 * 60 * 24));
-                
-                if (parcela.status === 'pendente') {
-                    totalReceber += valor;
-                    
-                    if (diasAteVencimento < 0) {
-                        totalAtrasado += valor;
-                    } else if (diasAteVencimento <= 30) {
-                        totalVencer += valor;
-                    }
-                    
-                    const diffMeses = (vencimento.getMonth() - hoje.getMonth()) + 
-                                    (vencimento.getFullYear() - hoje.getFullYear()) * 12;
-                    if (diffMeses >= 0 && diffMeses < 6) {
-                        valoresPorMes[diffMeses] += valor;
-                    }
-                    
-                } else if (parcela.status === 'pago') {
-                    const dataPagamento = parcela.dataPagamento ? new Date(parcela.dataPagamento + 'T12:00:00') : null;
-                    if (dataPagamento && 
-                        dataPagamento.getMonth() === mesAtual && 
-                        dataPagamento.getFullYear() === anoAtual) {
-                        totalRecebidoMes += valor;
-                    }
-                }
-            });
-            
-            document.getElementById('total-a-receber').innerText = formatarValorReais(totalReceber);
-            document.getElementById('total-a-vencer').innerText = formatarValorReais(totalVencer);
-            document.getElementById('total-atrasado').innerText = formatarValorReais(totalAtrasado);
-            document.getElementById('total-recebido-mes').innerText = formatarValorReais(totalRecebidoMes);
-            
-            const maxValor = Math.max(...valoresPorMes, 1);
-            const meses = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun'];
-            
-            for (let i = 0; i < 6; i++) {
-                const barra = document.getElementById(`barra-${meses[i]}`);
-                if (barra) {
-                    const altura = valoresPorMes[i] > 0 ? (valoresPorMes[i] / maxValor) * 140 : 0;
-                    barra.style.height = altura + 'px';
-                    barra.title = formatarValorReais(valoresPorMes[i]);
-                }
-            }
-            
-            const selectCliente = document.getElementById('filtro-cliente-financeiro');
-            if (selectCliente) {
-                selectCliente.innerHTML = '<option value="todos">Todos os clientes</option>';
-                window.bancoClientes.forEach(c => {
-                    selectCliente.innerHTML += `<option value="${c.nome}">${c.nome}</option>`;
-                });
-            }
-            
-            window.filtrarFinanceiro();
-        }
-
-        window.filtrarFinanceiro = function() {
-            const statusFiltro = document.getElementById('filtro-status-financeiro')?.value || 'todos';
-            const clienteFiltro = document.getElementById('filtro-cliente-financeiro')?.value || 'todos';
-            const busca = document.getElementById('busca-financeiro')?.value.toLowerCase() || '';
-            
-            const hoje = new Date();
-            
-            let parcelasFiltradas = window.bancoParcelas.filter(p => {
-                if (statusFiltro !== 'todos') {
-                    if (statusFiltro === 'atrasado') {
-                        const vencimento = new Date(p.vencimento + 'T12:00:00');
-                        const dias = Math.ceil((vencimento - hoje) / (1000 * 60 * 60 * 24));
-                        if (p.status !== 'pendente' || dias >= 0) return false;
-                    } else if (p.status !== statusFiltro) {
-                        return false;
-                    }
-                }
-                
-                if (clienteFiltro !== 'todos' && p.cliente !== clienteFiltro) return false;
-                
-                if (busca) {
-                    const clienteMatch = p.cliente?.toLowerCase().includes(busca);
-                    const pedidoMatch = p.pedidoId?.toLowerCase().includes(busca);
-                    if (!clienteMatch && !pedidoMatch) return false;
-                }
-                
-                return true;
-            });
-            
-            parcelasFiltradas.sort((a, b) => new Date(a.vencimento) - new Date(b.vencimento));
-            
-            let html = '';
-            
-            if (parcelasFiltradas.length === 0) {
-                html = '<tr><td colspan="8" class="p-4 text-center text-gray-500">Nenhuma parcela encontrada</td></tr>';
-            } else {
-                parcelasFiltradas.forEach(p => {
-                    const vencimento = new Date(p.vencimento + 'T12:00:00');
-                    const diasAteVencimento = Math.ceil((vencimento - hoje) / (1000 * 60 * 60 * 24));
-                    
-                    let statusClass = '';
-                    let statusText = '';
-                    let diasTexto = '';
-                    let diasClass = '';
-                    let linhaClass = '';
-                    
-                    if (p.status === 'pago') {
-                        statusClass = 'badge-pago';
-                        statusText = 'Pago';
-                        diasTexto = 'Pago';
-                        diasClass = 'text-green-600';
-                        linhaClass = 'status-pago';
-                    } else if (diasAteVencimento < 0) {
-                        statusClass = 'badge-atrasado';
-                        statusText = 'Atrasado';
-                        diasTexto = `${Math.abs(diasAteVencimento)} dias atrasado`;
-                        diasClass = 'text-red-600 font-bold';
-                        linhaClass = 'status-atrasado';
-                    } else if (diasAteVencimento === 0) {
-                        statusClass = 'badge-pendente';
-                        statusText = 'Vence hoje';
-                        diasTexto = 'Vence hoje';
-                        diasClass = 'text-orange-600 font-bold';
-                        linhaClass = 'status-pendente';
-                    } else {
-                        statusClass = 'badge-pendente';
-                        statusText = 'A Receber';
-                        diasTexto = `Faltam ${diasAteVencimento} dias`;
-                        diasClass = 'text-yellow-600';
-                        linhaClass = 'status-pendente';
-                    }
-                    
-                    const pedido = window.bancoPedidos.find(ped => ped.id === p.pedidoId);
-                    const numeroPedido = pedido?.numero_sequencial ? `#${pedido.numero_sequencial.toString().padStart(3, '0')}` : p.pedidoId.substring(0,6);
-                    
-                    const parcelaTexto = p.totalParcelas > 1 ? `${p.numeroParcela}/${p.totalParcelas}` : 'Única';
-                    
-                    html += `
-                    <tr class="border-b hover:bg-gray-50 ${linhaClass}">
-                        <td class="p-2 border">${p.cliente}</td>
-                        <td class="p-2 border font-bold">${numeroPedido}</td>
-                        <td class="p-2 border">${parcelaTexto}</td>
-                        <td class="p-2 border">${formatarDataParaExibir(p.vencimento)}</td>
-                        <td class="p-2 border">${formatarValorReais(p.valor)}</td>
-                        <td class="p-2 border">
-                            <span class="px-2 py-1 rounded-full text-xs font-medium text-white ${statusClass}">
-                                ${statusText}
-                            </span>
-                        </td>
-                        <td class="p-2 border ${diasClass}">${diasTexto}</td>
-                        <td class="p-2 border">
-                            ${p.status !== 'pago' ? `
-                                <button onclick="window.receberParcela('${p.firebaseId}')" class="text-green-600 hover:text-green-800 mr-2" title="Receber parcela">
-                                    💰 Receber
-                                </button>
-                            ` : '✅'}
-                            <button onclick="window.verDetalhesParcela('${p.pedidoId}')" class="text-blue-600 hover:text-blue-800" title="Ver pedido">
-                                👁️
-                            </button>
-                        </td>
-                    </tr>`;
-                });
-            }
-            
-            document.getElementById('tabela-financeiro').innerHTML = html;
-        }
-
-        window.verDetalhesParcela = function(pedidoId) {
-            const pedido = window.bancoPedidos.find(p => p.id === pedidoId);
-            if (pedido) {
-                window.abrirPedidoParaEdicao(pedidoId);
-            } else {
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Erro',
-                    text: 'Pedido não encontrado!',
-                    confirmButtonColor: '#3b82f6'
-                });
-            }
-        }
-
-        // ==========================================
-        // FUNÇÕES DE STATUS
-        // ==========================================
-        
-// ==========================================
-// FUNÇÃO CORRIGIDA - SELECIONAR STATUS
-// ==========================================
-window.selecionarStatus = function(novoStatus) {
-    const selectStatus = document.getElementById('select-status');
-    const statusAtual = selectStatus ? selectStatus.value : 'Orçamento';
-    
-    if (statusAtual === novoStatus) return;
-    
-    const fluxoPermitido = {
-        'Orçamento': ['Produção'],
-        'Produção': ['Em Entrega'],
-        'Em Entrega': ['Entregue'],
-        'Entregue': []
-    };
-    
-    const transicoesPermitidas = fluxoPermitido[statusAtual] || [];
-    
-    if (!transicoesPermitidas.includes(novoStatus) && statusAtual !== 'Orçamento') {
-        let mensagem = '';
-        if (statusAtual === 'Entregue') mensagem = '❌ Pedido entregue não pode ser alterado!';
-        else if (statusAtual === 'Em Entrega') mensagem = '❌ Em entrega só pode ir para Entregue!';
-        else if (statusAtual === 'Produção') mensagem = '❌ Produção não pode voltar para Orçamento!';
-        else mensagem = `❌ Transição inválida!`;
-        
-        Swal.fire({
-            icon: 'error',
-            title: 'Transição inválida',
-            text: mensagem,
-            confirmButtonColor: '#3b82f6'
-        });
-        
-        atualizarBotoesStatus(statusAtual);
-        return;
-    }
-    
-    if (selectStatus) selectStatus.value = novoStatus;
-    atualizarBotoesStatus(novoStatus);
-    atualizarBarraProgresso(novoStatus);
-    
-    const statusBloqueados = ['Produção', 'Em Entrega', 'Entregue'];
-    if (statusBloqueados.includes(novoStatus)) {
-        bloquearCampos(true);
-        const aviso = document.getElementById('aviso-bloqueio');
-        const spanStatus = document.getElementById('status-bloqueio');
-        if (aviso && spanStatus) {
-            spanStatus.innerText = novoStatus;
-            aviso.classList.remove('hidden');
-        }
-    } else {
-        bloquearCampos(false);
-        const aviso = document.getElementById('aviso-bloqueio');
-        if (aviso) aviso.classList.add('hidden');
-    }
-    
-    const pedidoId = document.getElementById('pedido-id-atual').value;
-    const clienteSelect = document.getElementById('input-cliente');
-    const cliente = clienteSelect ? clienteSelect.value : '';
-    
-    if (!cliente) {
-        Swal.fire({
-            icon: 'warning',
-            title: 'Cliente não selecionado',
-            text: 'Selecione um cliente antes de mudar o status!',
-            confirmButtonColor: '#3b82f6'
-        });
-        return;
-    }
-    
-    Swal.fire({
-        title: 'Salvar pedido?',
-        text: `Status alterado para ${novoStatus}. Deseja salvar o pedido agora?`,
-        icon: 'question',
-        showCancelButton: true,
-        confirmButtonColor: '#3b82f6',
-        cancelButtonColor: '#6b7280',
-        confirmButtonText: 'Sim, salvar',
-        cancelButtonText: 'Não'
-    }).then((result) => {
-        if (result.isConfirmed) {
-            salvarPedidoAtual();
-        }
-    });
-};
-
-        function bloquearCampos(bloquear) {
-            const campos = [
-                'input-cliente',
-                'input-km',
-                'input-litro',
-                'input-consumo',
-                'input-pedagio',
-                'input-desconto',
-                'input-acrescimo',
-                'input-motivo-acrescimo',
-                'select-pagamento',
-                'select-condicao-pagamento',
-                'input-parcelas',
-                'input-primeiro-vencimento',
-                'input-previsao'
-            ];
-            
-            campos.forEach(id => {
-                const campo = document.getElementById(id);
-                if (campo) {
-                    if (bloquear) {
-                        campo.setAttribute('disabled', 'disabled');
-                        campo.classList.add('bg-gray-100', 'cursor-not-allowed');
-                    } else {
-                        campo.removeAttribute('disabled');
-                        campo.classList.remove('bg-gray-100', 'cursor-not-allowed');
-                    }
-                }
-            });
-            
-            document.querySelectorAll('#tabela-itens input, #tabela-itens select').forEach(input => {
-                if (bloquear) {
-                    input.setAttribute('disabled', 'disabled');
-                    input.classList.add('bg-gray-100', 'cursor-not-allowed');
-                } else {
-                    input.removeAttribute('disabled');
-                    input.classList.remove('bg-gray-100', 'cursor-not-allowed');
-                }
-            });
-            
-            document.querySelectorAll('#tabela-itens button').forEach(btn => {
-                if (bloquear) {
-                    btn.setAttribute('disabled', 'disabled');
-                    btn.classList.add('opacity-50', 'cursor-not-allowed');
-                } else {
-                    btn.removeAttribute('disabled');
-                    btn.classList.remove('opacity-50', 'cursor-not-allowed');
-                }
-            });
-            
-            const btnAdicionar = document.querySelector('#linha-adicionar button');
-            if (btnAdicionar) {
-                if (bloquear) {
-                    btnAdicionar.setAttribute('disabled', 'disabled');
-                    btnAdicionar.classList.add('opacity-50', 'cursor-not-allowed');
-                } else {
-                    btnAdicionar.removeAttribute('disabled');
-                    btnAdicionar.classList.remove('opacity-50', 'cursor-not-allowed');
-                }
-            }
-            
-            const btnSalvar = document.getElementById('btn-salvar');
-            if (btnSalvar) {
-                if (bloquear) {
-                    btnSalvar.setAttribute('disabled', 'disabled');
-                    btnSalvar.classList.add('opacity-50', 'cursor-not-allowed');
-                } else {
-                    btnSalvar.removeAttribute('disabled');
-                    btnSalvar.classList.remove('opacity-50', 'cursor-not-allowed');
-                }
-            }
-        }
-
-        function atualizarBotoesStatus(status) {
-            const botoes = [
-                { id: 'status-orcamento', status: 'Orçamento', cor: 'border-yellow-500 bg-yellow-50 text-yellow-700' },
-                { id: 'status-producao', status: 'Produção', cor: 'border-blue-500 bg-blue-50 text-blue-700' },
-                { id: 'status-entrega', status: 'Em Entrega', cor: 'border-orange-500 bg-orange-50 text-orange-700' },
-                { id: 'status-entregue', status: 'Entregue', cor: 'border-green-500 bg-green-50 text-green-700' }
-            ];
-            
-            botoes.forEach(item => {
-                const btn = document.getElementById(item.id);
-                if (btn) {
-                    btn.classList.remove(
-                        'border-yellow-500', 'bg-yellow-50', 'text-yellow-700',
-                        'border-blue-500', 'bg-blue-50', 'text-blue-700',
-                        'border-orange-500', 'bg-orange-50', 'text-orange-700',
-                        'border-green-500', 'bg-green-50', 'text-green-700'
-                    );
-                    btn.classList.add('border-gray-200', 'bg-gray-50', 'text-gray-700');
-                }
-            });
-            
-            const selecionado = botoes.find(b => b.status === status);
-            if (selecionado) {
-                const btn = document.getElementById(selecionado.id);
-                if (btn) {
-                    btn.classList.remove('border-gray-200', 'bg-gray-50', 'text-gray-700');
-                    const classes = selecionado.cor.split(' ');
-                    btn.classList.add(...classes);
-                }
-            }
-        }
-
-        function atualizarBarraProgresso(status) {
-            const barra = document.getElementById('progress-bar');
-            const label = document.getElementById('status-label');
-            
-            if (!barra || !label) return;
-            
-            const progressos = {
-                'Orçamento': { width: '25%', cor: 'bg-yellow-500', texto: 'Orçamento' },
-                'Produção': { width: '50%', cor: 'bg-blue-500', texto: 'Em produção' },
-                'Em Entrega': { width: '75%', cor: 'bg-orange-500', texto: 'Saiu para entrega' },
-                'Entregue': { width: '100%', cor: 'bg-green-500', texto: 'Entregue' }
-            };
-            
-            const prog = progressos[status] || progressos['Orçamento'];
-            
-            barra.classList.remove('bg-yellow-500', 'bg-blue-500', 'bg-orange-500', 'bg-green-500');
-            barra.classList.add(prog.cor);
-            barra.style.width = prog.width;
-            
-            label.innerHTML = `Status: ${status} - ${prog.texto}`;
-        }
-
-        function gerarBadgeStatus(status) {
-            const config = {
-                'Orçamento': { cor: 'bg-yellow-100 text-yellow-800 border-yellow-300', icone: '📋' },
-                'Produção': { cor: 'bg-blue-100 text-blue-800 border-blue-300', icone: '🔧' },
-                'Em Entrega': { cor: 'bg-orange-100 text-orange-800 border-orange-300', icone: '🚚' },
-                'Entregue': { cor: 'bg-green-100 text-green-800 border-green-300', icone: '✅' }
-            };
-            const cfg = config[status] || { cor: 'bg-gray-100 text-gray-800 border-gray-300', icone: '📦' };
-            return `<span class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium border ${cfg.cor}">${cfg.icone} ${status}</span>`;
-        }
-
-        // ==========================================
-        // FUNÇÕES DO BANCO DE DADOS
-        // ==========================================
-        
-        async function obterProximoNumeroPedido() {
-            const ref = doc(db, "configuracoes", "contador_pedidos");
-            return await runTransaction(db, async (t) => {
-                const snap = await t.get(ref);
-                const n = snap.exists() ? snap.data().ultimo_numero + 1 : 1;
-                t.set(ref, { ultimo_numero: n }); 
-                return n;
-            });
-        }
-
-        async function carregarMemoriaBanco() {
-            try {
-                console.log('📥 Carregando clientes...');
-                const cliSnap = await getDocs(collection(db, "clientes"));
-                window.bancoClientes = cliSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                
-                console.log('📥 Carregando produtos...');
-                const prodSnap = await getDocs(collection(db, "produtos"));
-                window.bancoProdutos = prodSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                
-                console.log('📥 Carregando pedidos...');
-                const pedSnap = await getDocs(collection(db, "pedidos"));
-                window.bancoPedidos = pedSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                
-                console.log('📥 Carregando parcelas...');
-                await carregarParcelasDoFirebase();
-                
-                window.bancoPedidos.sort((a,b) => (b.data_criacao?.seconds || 0) - (a.data_criacao?.seconds || 0));
-                
-                renderizarTudo();
-            } catch (e) { 
-                console.error("Erro ao carregar:", e); 
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Erro',
-                    text: 'Erro ao carregar dados do banco!',
-                    confirmButtonColor: '#3b82f6'
-                });
-            }
-        }
-
-        function renderizarTudo() {
-            document.getElementById('tabela-pedidos').innerHTML = window.bancoPedidos.map(p => `
-                <tr class="border-b text-sm hover:bg-gray-50">
-                    <td class="p-2 border-r font-bold">#${p.numero_sequencial?.toString().padStart(3,'0') || 'S/N'}</td>
-                    <td class="p-2 border-r">${p.data_criacao ? new Date(p.data_criacao.seconds*1000).toLocaleDateString() : '-'}</td>
-                    <td class="p-2 border-r">${p.cliente_nome}</td>
-                    <td class="p-2 border-r">${gerarBadgeStatus(p.status)}</td>
-                    <td class="p-2 border-r">${formatarValorReais(p.valor_total)}</td>
-                    <td class="p-2 border-r">${p.condicao_pagamento || 'Vista'}</td>
-                    <td class="p-2 text-center">
-                        <button onclick="window.abrirPedidoParaEdicao('${p.id}')" class="bg-gray-800 text-yellow-500 px-3 py-1.5 rounded hover:bg-gray-700 transition text-sm shadow-sm">
-                            👁️ Abrir
-                        </button>
-                    </td>
-                </tr>`).join('');
-
-            document.getElementById('lista-clientes').innerHTML = window.bancoClientes.map(c => {
-                const telefone = c.telefone || '-';
-                const endereco = c.endereco || '-';
-                const enderecoResumido = endereco.length > 30 ? endereco.substring(0,30) + '...' : endereco;
-                
-                return `
-                <tr class="border-b text-sm hover:bg-gray-50">
-                    <td class="p-2 border">${c.nome}</td>
-                    <td class="p-2 border">${telefone}</td>
-                    <td class="p-2 border">${enderecoResumido}</td>
-                    <td class="p-2 border">
-                        <button onclick="window.editarCliente('${c.id}','${c.nome}','${c.telefone || ''}','${c.documento || ''}','${c.endereco || ''}','${c.cep || ''}')" class="text-blue-600 hover:text-blue-800 mr-2" title="Editar">
-                            ✏️
-                        </button>
-                        <button onclick="window.excluirCliente('${c.id}')" class="text-red-600 hover:text-red-800" title="Excluir">
-                            🗑️
-                        </button>
-                    </td>
-                </tr>`}).join('') || '<tr><td colspan="4" class="p-4 text-center text-gray-500">Nenhum cliente encontrado</td></tr>';
-
-            document.getElementById('lista-produtos').innerHTML = window.bancoProdutos.map(p => `
-                <tr class="border-b text-sm hover:bg-gray-50">
-                    <td class="p-2 border">${p.descricao}</td>
-                    <td class="p-2 border">${p.fornecedor || '-'}</td>
-                    <td class="p-2 border">${formatarValorReais(p.valor_base)}</td>
-                    <td class="p-2 border">
-                        <button onclick="window.editarProduto('${p.id}','${p.descricao}','${p.fornecedor || ''}','${p.valor_base}')" class="text-blue-600 hover:text-blue-800 mr-2">
-                            ✏️
-                        </button>
-                        <button onclick="window.excluirProduto('${p.id}')" class="text-red-600 hover:text-red-800">
-                            🗑️
-                        </button>
-                    </td>
-                </tr>`).join('') || '<tr><td colspan="4" class="p-4 text-center text-gray-500">Nenhum produto encontrado</td></tr>';
-
-            const selectCliente = document.getElementById('input-cliente');
-            if (selectCliente) {
-                const currentValue = selectCliente.value;
-                selectCliente.innerHTML = '<option value="">Selecione um cliente</option>';
-                window.bancoClientes.forEach(c => {
-                    selectCliente.innerHTML += `<option value="${c.nome}">${c.nome}</option>`;
-                });
-                if (currentValue) {
-                    selectCliente.value = currentValue;
-                }
-                
-                if ($.fn.select2) {
-                    $(selectCliente).select2({
-                        placeholder: "Busque um cliente...",
-                        allowClear: true,
-                        width: '100%'
-                    });
-                }
-            }
-            
-            const tbody = document.getElementById('tabela-itens');
-            if (tbody && tbody.children.length === 0) {
-                window.novoPedido();
-            } else {
-                document.querySelectorAll('#tabela-itens .produto-select').forEach(select => {
-                    if ($.fn.select2) {
-                        $(select).select2({
-                            placeholder: "Busque um produto...",
-                            allowClear: true,
-                            width: '100%'
-                        });
-                    }
-                });
-            }
-        }
-
-        function renderizarTabelaPedidosNoFilter(lista) {
-            document.getElementById('tabela-pedidos').innerHTML = lista.map(p => `
-                <tr class="border-b text-sm hover:bg-gray-50">
-                    <td class="p-2 border-r font-bold">#${p.numero_sequencial?.toString().padStart(3,'0') || 'S/N'}</td>
-                    <td class="p-2 border-r">${p.data_criacao ? new Date(p.data_criacao.seconds*1000).toLocaleDateString() : '-'}</td>
-                    <td class="p-2 border-r">${p.cliente_nome}</td>
-                    <td class="p-2 border-r">${gerarBadgeStatus(p.status)}</td>
-                    <td class="p-2 border-r">${formatarValorReais(p.valor_total)}</td>
-                    <td class="p-2 border-r">${p.condicao_pagamento || 'Vista'}</td>
-                    <td class="p-2 text-center">
-                        <button onclick="window.abrirPedidoParaEdicao('${p.id}')" class="bg-gray-800 text-yellow-500 px-3 py-1.5 rounded hover:bg-gray-700 transition text-sm shadow-sm">
-                            👁️ Abrir
-                        </button>
-                    </td>
-                </tr>`).join('');
-        }
-
-        // ==========================================
-        // FUNÇÃO PARA NOVO PEDIDO
-        // ==========================================
-window.novoPedido = function() {
-    console.log('➕ Iniciando novo pedido - reset completo');
-    
-    // ==========================================
-    // RESETAR BLOQUEIO
-    // ==========================================
-    bloquearCampos(false);
-    document.getElementById('aviso-bloqueio').classList.add('hidden');
-    
-    document.getElementById('pedido-id-atual').value = '';
-    
-    const selectCliente = document.getElementById('input-cliente');
-    if (selectCliente) {
-        if ($.fn.select2) {
-            $(selectCliente).val('').trigger('change');
-        } else {
-            selectCliente.value = '';
-        }
-    }
-    
-    document.getElementById('input-endereco').value = '';
-    document.getElementById('dados-cliente-container').classList.add('hidden');
-    
-    document.getElementById('input-km').value = '';
-    document.getElementById('input-litro').value = '4.20';
-    document.getElementById('input-consumo').value = '9.0';
-    document.getElementById('input-pedagio').value = '0,00';
-    
-    document.getElementById('input-desconto').value = '0';
-    document.getElementById('input-acrescimo').value = '0,00';
-    document.getElementById('input-motivo-acrescimo').value = '';
-    
-    document.getElementById('select-pagamento').value = 'Pix';
-    document.getElementById('select-condicao-pagamento').value = 'Vista';
-    document.getElementById('div-parcelas-personalizado').classList.add('hidden');
-    document.getElementById('input-primeiro-vencimento').value = '';
-    
-    document.getElementById('input-previsao').value = '';
-    document.getElementById('pdf-n-display').innerText = '';
-    
-    document.getElementById('custo-combustivel').innerText = 'R$ 0,00';
-    document.getElementById('custo-pedagio').innerText = 'R$ 0,00';
-    document.getElementById('custo-total-frete').innerText = 'R$ 0,00';
-    document.getElementById('display-frete-estimado').value = 'R$ 0,00';
-    document.getElementById('display-subtotal').innerText = 'Subtotal: R$ 0,00';
-    document.getElementById('display-desconto').innerText = 'Desconto: - R$ 0,00';
-    document.getElementById('display-acrescimo').innerText = 'Acréscimo: + R$ 0,00';
-    document.getElementById('display-frete-final').innerText = 'Frete: R$ 0,00';
-    document.getElementById('display-taxa-final').classList.add('hidden');
-    document.getElementById('display-total').innerText = 'Total: R$ 0,00';
-    document.getElementById('btn-gerar-pdf').setAttribute('data-total', '0,00');
-    
-    document.getElementById('btn-cancelar-pedido').classList.add('hidden');
-    
-    const btnSalvar = document.getElementById('btn-salvar');
-    btnSalvar.innerHTML = '📦 Salvar Pedido';
-    btnSalvar.classList.remove('bg-blue-600', 'hover:bg-blue-700');
-    btnSalvar.classList.add('bg-green-600', 'hover:bg-green-700');
-    
-    const selectStatus = document.getElementById('select-status');
-    if (selectStatus) selectStatus.value = 'Orçamento';
-    
-    const botoes = document.querySelectorAll('[id^="status-"]');
-    botoes.forEach(btn => {
-        btn.classList.remove('border-yellow-500', 'bg-yellow-50', 'text-yellow-700',
-            'border-blue-500', 'bg-blue-50', 'text-blue-700',
-            'border-orange-500', 'bg-orange-50', 'text-orange-700',
-            'border-green-500', 'bg-green-50', 'text-green-700');
-        btn.classList.add('border-gray-200', 'bg-gray-50', 'text-gray-700');
-    });
-    
-    const btnOrcamento = document.getElementById('status-orcamento');
-    if (btnOrcamento) {
-        btnOrcamento.classList.remove('border-gray-200', 'bg-gray-50', 'text-gray-700');
-        btnOrcamento.classList.add('border-yellow-500', 'bg-yellow-50', 'text-yellow-700');
-    }
-    
-    const barra = document.getElementById('progress-bar');
-    const label = document.getElementById('status-label');
-    if (barra) {
-        barra.classList.remove('bg-blue-500', 'bg-orange-500', 'bg-green-500');
-        barra.classList.add('bg-yellow-500');
-        barra.style.width = '25%';
-    }
-    if (label) {
-        label.innerHTML = 'Status: Orçamento - Orçamento';
-    }
-    
-    const tbody = document.getElementById('tabela-itens');
-    tbody.innerHTML = '';
-    
-    const tr = document.createElement('tr');
-    tr.className = 'text-sm';
-    
-    const selectId = 'produto-select-' + Date.now() + '-0';
-    
-    tr.innerHTML = `
-        <td class="p-2 border"><input type="number" value="1" min="1" class="w-16 p-1 border rounded qtd-item" onchange="calcularTudo()" onkeyup="calcularTudo()"></td>
-        <td class="p-2 border">
-            <select id="${selectId}" class="w-full p-1 border rounded desc-item border-blue-300 focus:ring-2 focus:ring-blue-500 bg-gray-50 produto-select" style="width: 100%;" onchange="window.preencherProduto(this)">
-                <option value="">Selecione um produto</option>
-            </select>
-        </td>
-        <td class="p-2 border"><input type="text" placeholder="Fornecedor" class="w-full p-1 border rounded forn-item bg-gray-100" readonly></td>
-        <td class="p-2 border"><input type="text" class="w-24 p-1 border rounded valor-item bg-gray-100 text-right" value="R$ 0,00" readonly></td>
-        <td class="p-2 border font-semibold total-linha">R$ 0,00</td>
-        <td class="p-2 border text-center"><button onclick="if(podeEditarPedido()) { this.closest('tr').remove(); calcularTudo(); } else { Swal.fire({ icon: 'error', title: 'Ação bloqueada', text: '❌ Não é possível remover itens de um pedido em andamento!', confirmButtonColor: '#3b82f6' }); }" class="text-red-500 font-bold hover:text-red-700">X</button></td>
-    `;
-    
-    tbody.appendChild(tr);
-    
-    const linhaAdicionar = document.createElement('tr');
-    linhaAdicionar.className = 'text-sm';
-    linhaAdicionar.id = 'linha-adicionar';
-    linhaAdicionar.innerHTML = `
-        <td class="p-2 border bg-gray-50 text-center" colspan="6">
-            <button onclick="adicionarLinha()" class="text-blue-600 font-semibold hover:underline w-full py-2">
-                + Adicionar Item
-            </button>
-        </td>
-    `;
-    tbody.appendChild(linhaAdicionar);
-    
-    const primeiroSelect = document.getElementById(selectId);
-    if (primeiroSelect && window.bancoProdutos) {
-        window.bancoProdutos.forEach(p => {
-            const option = document.createElement('option');
-            option.value = p.descricao;
-            option.setAttribute('data-valor', p.valor_base);
-            option.setAttribute('data-forn', p.fornecedor || '');
-            option.textContent = `${p.descricao} - ${formatarValorReais(p.valor_base)}`;
-            primeiroSelect.appendChild(option);
-        });
-        
-        if ($.fn.select2) {
-            $(primeiroSelect).select2({
-                placeholder: "Busque um produto...",
-                allowClear: true,
-                width: '100%'
-            });
-        }
-    }
-    
-    calcularTudo();
-    
-    Swal.fire({
-        icon: 'success',
-        title: 'Novo pedido',
-        text: 'Pedido iniciado! Comece selecionando um cliente.',
-        timer: 2000,
-        showConfirmButton: false
-    });
-};
-
-        // ==========================================
-        // FUNÇÃO PARA CANCELAR EDIÇÃO
-        // ==========================================
-        window.cancelarEdicao = async function() {
-            const result = await Swal.fire({
-                title: 'Cancelar edição?',
-                text: 'Todas as alterações não salvas serão perdidas.',
-                icon: 'warning',
-                showCancelButton: true,
-                confirmButtonColor: '#dc2626',
-                cancelButtonColor: '#6b7280',
-                confirmButtonText: 'Sim, cancelar',
-                cancelButtonText: 'Não'
-            });
-            
-            if (result.isConfirmed) {
-                window.novoPedido();
-            }
-        }
-
-        async function salvarPedidoAtual() {
-            if (!auth.currentUser) return;
-            
-            const btn = document.getElementById('btn-salvar');
-            const textoOriginal = btn.innerHTML;
-            const id = document.getElementById('pedido-id-atual').value;
-            
-            const selectCliente = document.getElementById('input-cliente');
-            const nomeCliente = selectCliente ? selectCliente.value : '';
-            const cliente = window.bancoClientes.find(c => c.nome === nomeCliente);
-            
-            if (!cliente) {
-                Swal.fire({
-                    icon: 'warning',
-                    title: 'Cliente inválido',
-                    text: 'Selecione um cliente válido!',
-                    confirmButtonColor: '#3b82f6'
-                });
-                return;
-            }
-            
-            let pedagio = 0;
-            const pedagioInput = document.getElementById('input-pedagio').value;
-            if (pedagioInput) {
-                pedagio = parseFloat(pedagioInput.replace(/[^\d,]/g, '').replace(',', '.')) || 0;
-            }
-            
-            let acrescimo = 0;
-            const acrescimoInput = document.getElementById('input-acrescimo').value;
-            if (acrescimoInput) {
-                acrescimo = parseFloat(acrescimoInput.replace(/[^\d,]/g, '').replace(',', '.')) || 0;
-            }
-            
-            const condicaoPagamento = document.getElementById('select-condicao-pagamento').value;
-            const primeiroVencimento = document.getElementById('input-primeiro-vencimento').value;
-            
-            const statusAtual = document.getElementById('select-status').value;
-            
-            const dados = {
-                cliente_nome: nomeCliente,
-                cliente_id: cliente.id,
-                cliente_endereco: cliente.endereco || '',
-                cliente_telefone: cliente.telefone || '',
-                cliente_documento: cliente.documento || '',
-                status: statusAtual,
-                condicao_pagamento: condicaoPagamento,
-                primeiro_vencimento: primeiroVencimento,
-                valor_total: parseFloat(document.getElementById('btn-gerar-pdf').getAttribute('data-total').replace(',','.')) || 0,
-                desconto: document.getElementById('input-desconto').value || '0',
-                acrescimo: acrescimo,
-                motivo_acrescimo: document.getElementById('input-motivo-acrescimo').value || '',
-                frete: {
-                    distancia: document.getElementById('input-km').value || '0',
-                    preco_combustivel: document.getElementById('input-litro').value || '4.20',
-                    consumo: document.getElementById('input-consumo').value || '9.0',
-                    pedagio: pedagio,
-                    custo_combustivel: document.getElementById('custo-combustivel').innerText || 'R$ 0,00',
-                    custo_total: document.getElementById('custo-total-frete').innerText || 'R$ 0,00'
-                },
-                itens: []
-            };
-            
-            document.querySelectorAll('#tabela-itens tr:not(#linha-adicionar)').forEach(tr => {
-                const select = tr.querySelector('.desc-item');
-                if (!select) return;
-                
-                const selectedOption = select.options[select.selectedIndex];
-                if (!selectedOption) return;
-                
-                const desc = selectedOption.text.split(' - ')[0];
-                if (desc && desc !== 'Selecione um produto') {
-                    dados.itens.push({ 
-                        quantidade: tr.querySelector('.qtd-item').value, 
-                        descricao: desc, 
-                        fornecedor: tr.querySelector('.forn-item').value, 
-                        valor_unitario: tr.querySelector('.valor-item').value.replace('R$', '').trim()
-                    });
-                }
-            });
-            
-            if (dados.itens.length === 0) {
-                Swal.fire({
-                    icon: 'warning',
-                    title: 'Sem itens',
-                    text: 'Adicione pelo menos um item ao pedido!',
-                    confirmButtonColor: '#3b82f6'
-                });
-                return;
-            }
-            
-            btn.innerHTML = '💾 Salvando...';
-            
-            try {
-                let pedidoId = id;
-                
-                if (id) {
-                    await updateDoc(doc(db, "pedidos", id), dados);
-                    console.log('Pedido atualizado com status:', dados.status);
-                } else {
-                    dados.numero_sequencial = await obterProximoNumeroPedido();
-                    dados.data_criacao = serverTimestamp();
-                    const docRef = await addDoc(collection(db, "pedidos"), dados);
-                    pedidoId = docRef.id;
-                    document.getElementById('pedido-id-atual').value = docRef.id;
-                    document.getElementById('btn-cancelar-pedido').classList.remove('hidden');
-                    atualizarTextoBotaoSalvar('editando');
-                }
-                
-                if (statusAtual === 'Produção') {
-                    console.log('🔄 Pedido em PRODUÇÃO - Gerando parcelas...');
-                    
-                    const parcelasAntigas = await getDocs(collection(db, "parcelas"));
-                    const batchDelete = writeBatch(db);
-                    let contador = 0;
-                    
-                    parcelasAntigas.forEach(doc => {
-                        if (doc.data().pedidoId === pedidoId) {
-                            batchDelete.delete(doc.ref);
-                            contador++;
-                        }
-                    });
-                    
-                    if (contador > 0) {
-                        await batchDelete.commit();
-                        console.log(`${contador} parcelas antigas removidas`);
-                    }
-                    
-                    await gerarParcelas(
-                        pedidoId,
-                        nomeCliente,
-                        dados.valor_total,
-                        condicaoPagamento,
-                        primeiroVencimento
-                    );
-                    
-                    await Swal.fire({
-                        icon: 'success',
-                        title: 'Pedido em PRODUÇÃO!',
-                        text: 'Parcelas geradas no financeiro.',
-                        timer: 2000,
-                        showConfirmButton: false
-                    });
-                } else {
-                    console.log('📋 Pedido em ORÇAMENTO - Nenhuma parcela gerada');
-                }
-                
-                await Swal.fire({
-                    icon: 'success',
-                    title: 'Sucesso!',
-                    text: 'Pedido salvo com sucesso!',
-                    timer: 2000,
-                    showConfirmButton: false
-                });
-                
-                await carregarMemoriaBanco();
-                
-            } catch (error) {
-                console.error('Erro ao salvar:', error);
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Erro',
-                    text: 'Erro ao salvar pedido!',
-                    confirmButtonColor: '#3b82f6'
-                });
-            } finally {
-                btn.innerHTML = textoOriginal;
-            }
-        }
-
-        function atualizarTextoBotaoSalvar(modo) {
-            const btn = document.getElementById('btn-salvar');
-            if (modo === 'editando') {
-                btn.innerHTML = '✏️ Atualizar Pedido';
-                btn.classList.remove('bg-green-600', 'hover:bg-green-700');
-                btn.classList.add('bg-blue-600', 'hover:bg-blue-700');
-            } else {
-                btn.innerHTML = '📦 Salvar Pedido';
-                btn.classList.remove('bg-blue-600', 'hover:bg-blue-700');
-                btn.classList.add('bg-green-600', 'hover:bg-green-700');
-            }
-        }
-
-        document.getElementById('btn-salvar').addEventListener('click', salvarPedidoAtual);
-
-        // ==========================================
-        // FUNÇÕES DE CLIENTES
-        // ==========================================
-        
-        document.getElementById('btn-salvar-cliente').addEventListener('click', async () => {
-            const id = document.getElementById('cli-id').value;
-            
-            const nome = document.getElementById('cli-nome').value;
-            if (!nome) {
-                Swal.fire({
-                    icon: 'warning',
-                    title: 'Campo obrigatório',
-                    text: 'O nome do cliente é obrigatório!',
-                    confirmButtonColor: '#3b82f6'
-                });
-                return;
-            }
-            
-            const telefone = document.getElementById('cli-telefone').value;
-            const documento = document.getElementById('cli-documento').value;
-            
-            const d = { 
-                nome: nome, 
-                telefone: telefone,
-                documento: documento,
-                cep: document.getElementById('cli-cep').value,
-                endereco: document.getElementById('cli-endereco').value 
-            };
-            
-            try {
-                if(id) {
-                    await updateDoc(doc(db,"clientes",id), d);
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'Sucesso!',
-                        text: 'Cliente atualizado com sucesso!',
-                        timer: 2000,
-                        showConfirmButton: false
-                    });
-                } else { 
-                    await addDoc(collection(db,"clientes"), {...d, data_cadastro: serverTimestamp()});
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'Sucesso!',
-                        text: 'Cliente cadastrado com sucesso!',
-                        timer: 2000,
-                        showConfirmButton: false
-                    });
-                }
-            } catch (error) {
-                console.error('Erro ao salvar cliente:', error);
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Erro',
-                    text: 'Erro ao salvar cliente!',
-                    confirmButtonColor: '#3b82f6'
-                });
-            }
-            
-            document.getElementById('cli-id').value = ''; 
-            document.getElementById('cli-nome').value = ''; 
-            document.getElementById('cli-telefone').value = '';
-            document.getElementById('cli-documento').value = '';
-            document.getElementById('cli-cep').value = '';
-            document.getElementById('cli-endereco').value = '';
-            document.getElementById('btn-cancelar-cliente').classList.add('hidden');
-            
-            carregarMemoriaBanco();
-        });
-
-        document.getElementById('btn-salvar-produto').addEventListener('click', async () => {
-            const id = document.getElementById('prod-id').value;
-            
-            const descricao = document.getElementById('prod-desc').value;
-            const valorTexto = document.getElementById('prod-valor').value;
-            const valor = parseFloat(valorTexto.replace(/[^\d,]/g, '').replace(',', '.')) || 0;
-            
-            if (!descricao) {
-                Swal.fire({
-                    icon: 'warning',
-                    title: 'Campo obrigatório',
-                    text: 'A descrição do produto é obrigatória!',
-                    confirmButtonColor: '#3b82f6'
-                });
-                return;
-            }
-            
-            if (valor <= 0) {
-                Swal.fire({
-                    icon: 'warning',
-                    title: 'Valor inválido',
-                    text: 'O valor do produto deve ser maior que zero!',
-                    confirmButtonColor: '#3b82f6'
-                });
-                return;
-            }
-            
-            const d = { 
-                descricao: descricao, 
-                fornecedor: document.getElementById('prod-forn').value,
-                valor_base: valor
-            };
-            
-            try {
-                if(id) {
-                    await updateDoc(doc(db,"produtos",id), d);
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'Sucesso!',
-                        text: 'Produto atualizado com sucesso!',
-                        timer: 2000,
-                        showConfirmButton: false
-                    });
-                } else { 
-                    await addDoc(collection(db,"produtos"), {...d, data_cadastro: serverTimestamp()});
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'Sucesso!',
-                        text: 'Produto cadastrado com sucesso!',
-                        timer: 2000,
-                        showConfirmButton: false
-                    });
-                }
-            } catch (error) {
-                console.error('Erro ao salvar produto:', error);
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Erro',
-                    text: 'Erro ao salvar produto!',
-                    confirmButtonColor: '#3b82f6'
-                });
-            }
-            
-            document.getElementById('prod-id').value = ''; 
-            document.getElementById('prod-desc').value = ''; 
-            document.getElementById('prod-forn').value = '';
-            document.getElementById('prod-valor').value = '0,00';
-            document.getElementById('btn-cancelar-produto').classList.add('hidden');
-            
-            carregarMemoriaBanco();
-        });
-
-// ==========================================
-// FUNÇÃO PRINCIPAL - ABRIR PEDIDO (VERSÃO FINAL CORRIGIDA)
-// ==========================================
-window.abrirPedidoParaEdicao = function(id) {
-    console.log('🔍 Abrindo pedido para visualização/edição:', id);
-    
-    const pedido = window.bancoPedidos.find(x => x.id === id);
-    if (!pedido) {
-        Swal.fire({
-            icon: 'error',
-            title: 'Erro',
-            text: 'Pedido não encontrado!',
-            confirmButtonColor: '#3b82f6'
-        });
-        return;
-    }
-
-    console.log('Pedido carregado:', pedido);
-    console.log('Valor total do pedido:', pedido.valor_total);
-    console.log('Itens do pedido:', pedido.itens);
-
-    const cliente = window.bancoClientes.find(c => c.id === pedido.cliente_id);
-    
-    // ==========================================
-    // RESETAR BLOQUEIO ANTES DE CARREGAR
-    // ==========================================
-    bloquearCampos(false);
-    document.getElementById('aviso-bloqueio').classList.add('hidden');
-    
-    // ==========================================
-    // DADOS BÁSICOS
-    // ==========================================
-    document.getElementById('pedido-id-atual').value = pedido.id;
-    
-    const selectCliente = document.getElementById('input-cliente');
-    if (selectCliente && pedido.cliente_nome) {
-        if ($.fn.select2) {
-            $(selectCliente).val(pedido.cliente_nome).trigger('change');
-        } else {
-            selectCliente.value = pedido.cliente_nome;
-        }
-    }
-    
-    document.getElementById('pdf-n-display').innerText = '#' + (pedido.numero_sequencial?.toString().padStart(3,'0') || '???');
-    
-    // ==========================================
-    // DADOS DO CLIENTE
-    // ==========================================
-    if (cliente) {
-        document.getElementById('cliente-telefone').innerText = cliente.telefone || '-';
-        document.getElementById('cliente-documento').innerText = cliente.documento || '-';
-        document.getElementById('cliente-endereco').innerText = cliente.endereco || '-';
-        document.getElementById('cliente-cep').innerText = cliente.cep || '-';
-        document.getElementById('dados-cliente-container').classList.remove('hidden');
-        document.getElementById('input-endereco').value = cliente.endereco || '';
-    }
-    
-    document.getElementById('btn-cancelar-pedido').classList.remove('hidden');
-    atualizarTextoBotaoSalvar('editando');
-    
-    // ==========================================
-    // STATUS DO PEDIDO
-    // ==========================================
-    if (pedido.status) {
-        const selectStatus = document.getElementById('select-status');
-        if (selectStatus) {
-            selectStatus.value = pedido.status;
-            console.log('Status setado para:', pedido.status);
-            
-            // Atualiza botões de status
-            const botoes = document.querySelectorAll('[id^="status-"]');
-            botoes.forEach(btn => {
-                btn.classList.remove('border-yellow-500', 'bg-yellow-50', 'text-yellow-700',
-                    'border-blue-500', 'bg-blue-50', 'text-blue-700',
-                    'border-orange-500', 'bg-orange-50', 'text-orange-700',
-                    'border-green-500', 'bg-green-50', 'text-green-700');
-                btn.classList.add('border-gray-200', 'bg-gray-50', 'text-gray-700');
-            });
-            
-            const statusMap = {
-                'Orçamento': 'status-orcamento',
-                'Produção': 'status-producao',
-                'Em Entrega': 'status-entrega',
-                'Entregue': 'status-entregue'
-            };
-            
-            const btnId = statusMap[pedido.status];
-            if (btnId) {
-                const btn = document.getElementById(btnId);
-                if (btn) {
-                    btn.classList.remove('border-gray-200', 'bg-gray-50', 'text-gray-700');
-                    if (pedido.status === 'Orçamento') {
-                        btn.classList.add('border-yellow-500', 'bg-yellow-50', 'text-yellow-700');
-                    } else if (pedido.status === 'Produção') {
-                        btn.classList.add('border-blue-500', 'bg-blue-50', 'text-blue-700');
-                    } else if (pedido.status === 'Em Entrega') {
-                        btn.classList.add('border-orange-500', 'bg-orange-50', 'text-orange-700');
-                    } else if (pedido.status === 'Entregue') {
-                        btn.classList.add('border-green-500', 'bg-green-50', 'text-green-700');
-                    }
-                }
-            }
-            
-            // Atualiza barra de progresso
-            const progressos = {
-                'Orçamento': { width: '25%', cor: 'bg-yellow-500', texto: 'Orçamento' },
-                'Produção': { width: '50%', cor: 'bg-blue-500', texto: 'Em produção' },
-                'Em Entrega': { width: '75%', cor: 'bg-orange-500', texto: 'Saiu para entrega' },
-                'Entregue': { width: '100%', cor: 'bg-green-500', texto: 'Entregue' }
-            };
-            
-            const prog = progressos[pedido.status] || progressos['Orçamento'];
-            const barra = document.getElementById('progress-bar');
-            const label = document.getElementById('status-label');
-            
-            if (barra) {
-                barra.classList.remove('bg-yellow-500', 'bg-blue-500', 'bg-orange-500', 'bg-green-500');
-                barra.classList.add(prog.cor);
-                barra.style.width = prog.width;
-            }
-            if (label) {
-                label.innerHTML = `Status: ${pedido.status} - ${prog.texto}`;
-            }
-        }
-    }
-    
-    // ==========================================
-    // BLOQUEAR CAMPOS SE NECESSÁRIO
-    // ==========================================
-    const statusBloqueados = ['Produção', 'Em Entrega', 'Entregue'];
-    if (statusBloqueados.includes(pedido.status)) {
-        bloquearCampos(true);
-        const aviso = document.getElementById('aviso-bloqueio');
-        const spanStatus = document.getElementById('status-bloqueio');
-        if (aviso && spanStatus) {
-            spanStatus.innerText = pedido.status;
-            aviso.classList.remove('hidden');
-        }
-    }
-    
-    // ==========================================
-    // DADOS DO FRETE
-    // ==========================================
-    if (pedido.frete) {
-        document.getElementById('input-km').value = pedido.frete.distancia || '0';
-        document.getElementById('input-litro').value = pedido.frete.preco_combustivel || '4.20';
-        document.getElementById('input-consumo').value = pedido.frete.consumo || '9.0';
-        
-        let pedagio = pedido.frete.pedagio || 0;
-        document.getElementById('input-pedagio').value = pedagio.toFixed(2).replace('.', ',');
-        
-        if (pedido.frete.custo_combustivel) {
-            document.getElementById('custo-combustivel').innerText = pedido.frete.custo_combustivel;
-        }
-        if (pedido.frete.custo_total) {
-            document.getElementById('custo-total-frete').innerText = pedido.frete.custo_total;
-        }
-    }
-    
-    // ==========================================
-    // DESCONTOS E ACRÉSCIMOS
-    // ==========================================
-    if (pedido.desconto) document.getElementById('input-desconto').value = pedido.desconto;
-    if (pedido.acrescimo) document.getElementById('input-acrescimo').value = pedido.acrescimo.toFixed(2).replace('.', ',');
-    if (pedido.motivo_acrescimo) document.getElementById('input-motivo-acrescimo').value = pedido.motivo_acrescimo;
-    
-    // ==========================================
-    // CONDIÇÕES DE PAGAMENTO
-    // ==========================================
-    if (pedido.condicao_pagamento) {
-        document.getElementById('select-condicao-pagamento').value = pedido.condicao_pagamento;
-        if (pedido.condicao_pagamento === 'Personalizado') {
-            document.getElementById('div-parcelas-personalizado').classList.remove('hidden');
-        }
-    }
-    
-    if (pedido.primeiro_vencimento) {
-        document.getElementById('input-primeiro-vencimento').value = pedido.primeiro_vencimento;
-    }
-    
-    // ==========================================
-    // CARREGAR ITENS DO PEDIDO
-    // ==========================================
-    const tbody = document.getElementById('tabela-itens');
-    tbody.innerHTML = ''; // Limpa tudo
-
-    if (pedido.itens && pedido.itens.length > 0) {
-        console.log(`📦 Carregando ${pedido.itens.length} itens do pedido`);
-        
-pedido.itens.forEach((item, index) => {
-    console.log(`Item ${index + 1}:`, item);
-    console.log(`Item ${index + 1} - Descrição original: "${item.descricao}"`);
-    console.log(`Produtos disponíveis:`, window.bancoProdutos.map(p => p.descricao));
-    
-    // ==========================================
-    // PROCESSAR O VALOR UNITÁRIO
-    // ==========================================
-    let valorUnitario = 0;
-    
-    if (typeof item.valor_unitario === 'string') {
-        valorUnitario = item.valor_unitario
-            .replace('R$', '')
-            .trim()
-            .replace('.', '')
-            .replace(',', '.');
-        valorUnitario = parseFloat(valorUnitario);
-    } 
-    else if (typeof item.valor_unitario === 'number') {
-        valorUnitario = item.valor_unitario;
-    }
-    
-    if (isNaN(valorUnitario)) {
-        console.warn(`⚠️ Valor unitário inválido para item ${index + 1}, usando 0`);
-        valorUnitario = 0;
-    }
-    
-    console.log(`Valor unitário processado: ${valorUnitario}`);
-    
-    const tr = document.createElement('tr'); 
-    tr.className = 'text-sm';
-    
-    const selectId = 'produto-select-' + Date.now() + '-' + index + '-' + Math.random().toString(36).substr(2, 5);
-    
-    // ==========================================
-    // MONTAR SELECT COM COMPARAÇÃO ROBUSTA
-    // ==========================================
-    let selectHtml = `<select id="${selectId}" class="w-full p-1 border rounded desc-item border-blue-300 focus:ring-2 focus:ring-blue-500 bg-gray-50 produto-select" style="width: 100%;" onchange="window.preencherProduto(this)">`;
-    selectHtml += '<option value="">Selecione um produto</option>';
-    
-    // Normalizar a descrição do item para comparação
-    const descricaoItemNormalizada = item.descricao ? item.descricao.trim().toLowerCase() : '';
-    
-    window.bancoProdutos.forEach(p => {
-        // Normalizar a descrição do produto para comparação
-        const descricaoProdutoNormalizada = p.descricao ? p.descricao.trim().toLowerCase() : '';
-        
-        // Verificar se é o produto correspondente
-        const selected = descricaoProdutoNormalizada === descricaoItemNormalizada ? 'selected' : '';
-        
-        // Log se encontrou correspondência
-        if (selected) {
-            console.log(`✅ Produto encontrado: "${p.descricao}" corresponde a "${item.descricao}"`);
-        }
-        
-        selectHtml += `<option value="${p.descricao}" data-valor="${p.valor_base}" data-forn="${p.fornecedor || ''}" ${selected}>${p.descricao} - ${formatarValorReais(p.valor_base)}</option>`;
-    });
-    
-    selectHtml += '</select>';
-    
-    const valorFormatado = formatarValorReais(valorUnitario);
-    console.log(`Valor formatado para exibição: ${valorFormatado}`);
-    
-    tr.innerHTML = `
-        <td class="p-2 border"><input type="number" value="${item.quantidade || 1}" class="w-16 p-1 border rounded qtd-item" onchange="calcularTudo()"></td>
-        <td class="p-2 border">${selectHtml}</td>
-        <td class="p-2 border"><input type="text" value="${item.fornecedor || ''}" class="w-full p-1 border rounded forn-item bg-gray-100" readonly></td>
-        <td class="p-2 border"><input type="text" value="${valorFormatado}" class="w-24 p-1 border rounded valor-item bg-gray-100 text-right" readonly></td>
-        <td class="p-2 border total-linha">R$ 0,00</td>
-        <td class="p-2 border text-center"><button onclick="if(podeEditarPedido()) { this.closest('tr').remove(); calcularTudo(); } else { Swal.fire({ icon: 'error', title: 'Ação bloqueada', text: '❌ Não é possível remover itens de um pedido em andamento!', confirmButtonColor: '#3b82f6' }); }" class="text-red-500 font-bold">X</button></td>
-    `;
-    
-    tbody.appendChild(tr);
-});
-    } else {
-        // ==========================================
-        // SE NÃO TEM ITENS, CRIA UMA LINHA EM BRANCO
-        // ==========================================
-        console.log('📦 Pedido sem itens, criando linha em branco');
-        const tr = document.createElement('tr');
-        tr.className = 'text-sm';
-        const selectId = 'produto-select-' + Date.now() + '-0';
-        tr.innerHTML = `
-            <td class="p-2 border"><input type="number" value="1" min="1" class="w-16 p-1 border rounded qtd-item" onchange="calcularTudo()" onkeyup="calcularTudo()"></td>
-            <td class="p-2 border">
-                <select id="${selectId}" class="w-full p-1 border rounded desc-item border-blue-300 focus:ring-2 focus:ring-blue-500 bg-gray-50 produto-select" style="width: 100%;" onchange="window.preencherProduto(this)">
-                    <option value="">Selecione um produto</option>
-                </select>
-            </td>
-            <td class="p-2 border"><input type="text" placeholder="Fornecedor" class="w-full p-1 border rounded forn-item bg-gray-100" readonly></td>
-            <td class="p-2 border"><input type="text" class="w-24 p-1 border rounded valor-item bg-gray-100 text-right" value="R$ 0,00" readonly></td>
-            <td class="p-2 border font-semibold total-linha">R$ 0,00</td>
-            <td class="p-2 border text-center"><button onclick="if(podeEditarPedido()) { this.closest('tr').remove(); calcularTudo(); } else { Swal.fire({ icon: 'error', title: 'Ação bloqueada', text: '❌ Não é possível remover itens de um pedido em andamento!', confirmButtonColor: '#3b82f6' }); }" class="text-red-500 font-bold hover:text-red-700">X</button></td>
-        `;
-        tbody.appendChild(tr);
-    }
-
-    // ==========================================
-    // ADICIONAR LINHA DE ADICIONAR NOVO ITEM
-    // ==========================================
-    const linhaAdicionar = document.createElement('tr');
-    linhaAdicionar.className = 'text-sm';
-    linhaAdicionar.id = 'linha-adicionar';
-    linhaAdicionar.innerHTML = `
-        <td class="p-2 border bg-gray-50 text-center" colspan="6">
-            <button onclick="adicionarLinha()" class="text-blue-600 font-semibold hover:underline w-full py-2">
-                + Adicionar Item
-            </button>
-        </td>
-    `;
-    tbody.appendChild(linhaAdicionar);
-
-    // ==========================================
-    // INICIALIZAR SELECT2
-    // ==========================================
-    setTimeout(() => {
-        document.querySelectorAll('.produto-select').forEach(select => {
-            if ($.fn.select2) {
-                $(select).select2({
-                    placeholder: "Busque um produto...",
-                    allowClear: true,
-                    width: '100%'
-                });
-            }
-        });
-    }, 100);
-
-    mostrarAba('aba-cadastro');
-
-    // ==========================================
-    // CHAMAR CALCULAR TUDO (APÓS TUDO CARREGADO)
-    // ==========================================
-    setTimeout(() => {
-        console.log('🔄 Chamando calcularTudo() após delay de 800ms...');
-        calcularTudo();
-        
-        setTimeout(() => {
-            const total = document.getElementById('display-total').innerText;
-            console.log('Total final:', total);
-        }, 100);
-    }, 800);
-};
-
-        window.editarCliente = function(id, nome, telefone, documento, endereco, cep) {
-            document.getElementById('cli-id').value = id;
-            document.getElementById('cli-nome').value = nome;
-            document.getElementById('cli-telefone').value = telefone || '';
-            document.getElementById('cli-documento').value = documento || '';
-            document.getElementById('cli-cep').value = cep || '';
-            document.getElementById('cli-endereco').value = endereco || '';
-            document.getElementById('btn-cancelar-cliente').classList.remove('hidden');
-            mostrarAba('aba-clientes');
-        };
-
-        window.editarProduto = function(id, descricao, fornecedor, valor) {
-            document.getElementById('prod-id').value = id;
-            document.getElementById('prod-desc').value = descricao;
-            document.getElementById('prod-forn').value = fornecedor || '';
-            document.getElementById('prod-valor').value = parseFloat(valor).toFixed(2).replace('.', ',');
-            document.getElementById('btn-cancelar-produto').classList.remove('hidden');
-            mostrarAba('aba-produtos');
-        };
-
-        window.excluirCliente = async (id) => { 
-            const result = await Swal.fire({
-                title: 'Excluir cliente?',
-                text: 'Tem certeza que deseja excluir este cliente?',
-                icon: 'warning',
-                showCancelButton: true,
-                confirmButtonColor: '#dc2626',
-                cancelButtonColor: '#6b7280',
-                confirmButtonText: 'Sim, excluir',
-                cancelButtonText: 'Cancelar'
-            });
-            
-            if (result.isConfirmed) {
-                await deleteDoc(doc(db,"clientes",id)); 
-                carregarMemoriaBanco();
-                Swal.fire({
-                    icon: 'success',
-                    title: 'Excluído!',
-                    text: 'Cliente excluído com sucesso.',
-                    timer: 2000,
-                    showConfirmButton: false
-                });
-            }
-        };
-
-        window.excluirProduto = async (id) => { 
-            const result = await Swal.fire({
-                title: 'Excluir produto?',
-                text: 'Tem certeza que deseja excluir este produto?',
-                icon: 'warning',
-                showCancelButton: true,
-                confirmButtonColor: '#dc2626',
-                cancelButtonColor: '#6b7280',
-                confirmButtonText: 'Sim, excluir',
-                cancelButtonText: 'Cancelar'
-            });
-            
-            if (result.isConfirmed) {
-                await deleteDoc(doc(db,"produtos",id)); 
-                carregarMemoriaBanco();
-                Swal.fire({
-                    icon: 'success',
-                    title: 'Excluído!',
-                    text: 'Produto excluído com sucesso.',
-                    timer: 2000,
-                    showConfirmButton: false
-                });
-            }
-        };
-
-        window.filtrarPedidos = (t) => { 
-            const termo = t.toLowerCase();
-            const f = window.bancoPedidos.filter(p => 
-                p.cliente_nome?.toLowerCase().includes(termo)
-            ); 
-            renderizarTabelaPedidosNoFilter(f); 
-        };
-
-        window.filtrarClientes = function(termo) {
-            const filtrados = window.bancoClientes.filter(c => 
-                c.nome?.toLowerCase().includes(termo.toLowerCase())
-            );
-            
-            document.getElementById('lista-clientes').innerHTML = filtrados.map(c => {
-                const telefone = c.telefone || '-';
-                const endereco = c.endereco || '-';
-                const enderecoResumido = endereco.length > 30 ? endereco.substring(0,30) + '...' : endereco;
-                
-                return `
-                <tr class="border-b text-sm hover:bg-gray-50">
-                    <td class="p-2 border">${c.nome}</td>
-                    <td class="p-2 border">${telefone}</td>
-                    <td class="p-2 border">${enderecoResumido}</td>
-                    <td class="p-2 border">
-                        <button onclick="window.editarCliente('${c.id}','${c.nome}','${c.telefone || ''}','${c.documento || ''}','${c.endereco || ''}','${c.cep || ''}')" class="text-blue-600 hover:text-blue-800 mr-2" title="Editar">
-                            ✏️
-                        </button>
-                        <button onclick="window.excluirCliente('${c.id}')" class="text-red-600 hover:text-red-800" title="Excluir">
-                            🗑️
-                        </button>
-                    </td>
-                </tr>`}).join('') || '<tr><td colspan="4" class="p-4 text-center text-gray-500">Nenhum cliente encontrado</td></tr>';
-        };
-
-        window.filtrarProdutos = function(termo) {
-            const filtrados = window.bancoProdutos.filter(p => 
-                p.descricao?.toLowerCase().includes(termo.toLowerCase())
-            );
-            
-            document.getElementById('lista-produtos').innerHTML = filtrados.map(p => `
-                <tr class="border-b text-sm hover:bg-gray-50">
-                    <td class="p-2 border">${p.descricao}</td>
-                    <td class="p-2 border">${p.fornecedor || '-'}</td>
-                    <td class="p-2 border">${formatarValorReais(p.valor_base)}</td>
-                    <td class="p-2 border">
-                        <button onclick="window.editarProduto('${p.id}','${p.descricao}','${p.fornecedor || ''}','${p.valor_base}')" class="text-blue-600 hover:text-blue-800 mr-2">
-                            ✏️
-                        </button>
-                        <button onclick="window.excluirProduto('${p.id}')" class="text-red-600 hover:text-red-800">
-                            🗑️
-                        </button>
-                    </td>
-                </tr>`).join('') || '<tr><td colspan="4" class="p-4 text-center text-gray-500">Nenhum produto encontrado</td></tr>';
-        };
-
-        window.cancelarEdicaoCliente = function() {
-            document.getElementById('cli-id').value = '';
-            document.getElementById('cli-nome').value = '';
-            document.getElementById('cli-telefone').value = '';
-            document.getElementById('cli-documento').value = '';
-            document.getElementById('cli-cep').value = '';
-            document.getElementById('cli-endereco').value = '';
-            document.getElementById('btn-cancelar-cliente').classList.add('hidden');
-        };
-
-        window.cancelarEdicaoProduto = function() {
-            document.getElementById('prod-id').value = '';
-            document.getElementById('prod-desc').value = '';
-            document.getElementById('prod-forn').value = '';
-            document.getElementById('prod-valor').value = '0,00';
-            document.getElementById('btn-cancelar-produto').classList.add('hidden');
-        };
-
-        window.formatarValorReais = formatarValorReais;
-        window.formatarDataParaExibir = formatarDataParaExibir;
-    </script>
+    <!-- Firebase (módulo) -->
+    <script type="module" src="firebase.js"></script>
 </body>
 </html>
