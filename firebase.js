@@ -79,6 +79,8 @@ window.verificarLimiteCredito = function(clienteNome, valorNovoPedido) {
     if (!cliente || !cliente.limite || parseFloat(cliente.limite) <= 0) return true;
 
     const limiteMaximo = parseFloat(cliente.limite);
+    
+    // Soma parcelas pendentes (contas a receber) do cliente carregadas na memória [cite: 55, 56]
     const debitoPendente = window.bancoParcelas
         .filter(p => p.cliente === clienteNome && p.status === 'pendente')
         .reduce((total, p) => total + (parseFloat(p.valor) || 0), 0);
@@ -93,7 +95,7 @@ window.verificarLimiteCredito = function(clienteNome, valorNovoPedido) {
                 <div class="text-left text-sm">
                     <p>O cliente <b>${clienteNome}</b> atingiu o limite.</p>
                     <p>Limite total: ${window.formatarValorReais(limiteMaximo)}</p>
-                    <p>Débito pendente: ${window.formatarValorReais(debitoPendente)}</p>
+                    <p>Débito atual pendente: ${window.formatarValorReais(debitoPendente)}</p>
                     <hr class="my-2">
                     <p class="text-red-600 font-bold">Total com este pedido: ${window.formatarValorReais(totalAcumulado)}</p>
                 </div>
@@ -878,13 +880,14 @@ function renderizarTudo() {
 }
 
 // ==========================================
-// FUNÇÃO PARA NOVO PEDIDO (VENCIMENTO AUTOMÁTICO 30 DIAS)
+// FUNÇÃO PARA NOVO PEDIDO (VERSÃO CORRIGIDA: INICIA LIMPO E COM VENCIMENTO)
 // ==========================================
 window.novoPedido = function() {
     console.log('➕ Iniciando novo pedido - reset completo');
     
     bloquearCampos(false);
     document.getElementById('aviso-bloqueio').classList.add('hidden');
+    
     document.getElementById('pedido-id-atual').value = '';
     
     const selectCliente = document.getElementById('input-cliente');
@@ -900,7 +903,7 @@ window.novoPedido = function() {
     document.getElementById('input-previsao').value = '';
     document.getElementById('pdf-n-display').innerText = '';
     
-    // ATUALIZAÇÃO: Primeiro vencimento automático para 30 dias a partir de hoje
+    // NOVO: Primeiro vencimento automático para 30 dias a partir de hoje
     const hoje = new Date();
     hoje.setDate(hoje.getDate() + 30);
     document.getElementById('input-primeiro-vencimento').value = hoje.toISOString().split('T')[0];
@@ -909,7 +912,7 @@ window.novoPedido = function() {
     btnSalvar.innerHTML = '📦 Salvar Pedido';
     
     const tbody = document.getElementById('tabela-itens');
-    tbody.innerHTML = '<tr><td colspan="7" class="p-4 text-center text-gray-500 italic">Tabela vazia. Use o botão azul para adicionar produtos.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" class="p-4 text-center text-gray-500 italic font-medium bg-gray-50/50">Nenhum item adicionado. Clique no botão azul para adicionar.</td></tr>';
     
     window.selecionarStatus('Orçamento');
     window.calcularTudo();
@@ -964,10 +967,10 @@ async function salvarPedidoAtual() {
     const statusAtual = document.getElementById('select-status')?.value || 'Orçamento';
     const totalPedidoAtual = parseFloat(document.getElementById('btn-gerar-pdf')?.getAttribute('data-total')?.replace(',','.') || '0');
 
-    // === TRAVA DE LIMITE DE CRÉDITO ===
+    // === TRAVA DE LIMITE DE CRÉDITO (ADICIONADA) ===
     if (statusAtual === 'Produção') {
         const creditoOk = window.verificarLimiteCredito(nomeCliente, totalPedidoAtual);
-        if (!creditoOk) return; // Cancela salvamento se ultrapassar o limite
+        if (!creditoOk) return; // Cancela salvamento se exceder o limite
     }
 
     const dados = {
