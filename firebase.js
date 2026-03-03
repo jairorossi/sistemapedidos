@@ -19,7 +19,7 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
 
-// SEGURANÇA: Configura o login para expirar ao fechar o navegador
+// SEGURANÇA: Configura o login para expirar ao fechar a aba/navegador
 setPersistence(auth, browserSessionPersistence)
     .then(() => {
         console.log("🔐 Segurança: Sessão limitada ao navegador.");
@@ -79,8 +79,6 @@ window.verificarLimiteCredito = function(clienteNome, valorNovoPedido) {
     if (!cliente || !cliente.limite || parseFloat(cliente.limite) <= 0) return true;
 
     const limiteMaximo = parseFloat(cliente.limite);
-    
-    // Soma parcelas pendentes do cliente carregadas na memória
     const debitoPendente = window.bancoParcelas
         .filter(p => p.cliente === clienteNome && p.status === 'pendente')
         .reduce((total, p) => total + (parseFloat(p.valor) || 0), 0);
@@ -95,7 +93,7 @@ window.verificarLimiteCredito = function(clienteNome, valorNovoPedido) {
                 <div class="text-left text-sm">
                     <p>O cliente <b>${clienteNome}</b> atingiu o limite.</p>
                     <p>Limite total: ${window.formatarValorReais(limiteMaximo)}</p>
-                    <p>Débito atual pendente: ${window.formatarValorReais(debitoPendente)}</p>
+                    <p>Débito pendente: ${window.formatarValorReais(debitoPendente)}</p>
                     <hr class="my-2">
                     <p class="text-red-600 font-bold">Total com este pedido: ${window.formatarValorReais(totalAcumulado)}</p>
                 </div>
@@ -879,32 +877,14 @@ function renderizarTudo() {
     if(dlProd) dlProd.innerHTML = window.bancoProdutos.map(p => `<option value="${p.descricao}">`).join('');
 }
 
-function renderizarTabelaPedidosNoFilter(lista) {
-    document.getElementById('tabela-pedidos').innerHTML = lista.map(p => `
-        <tr class="border-b text-sm hover:bg-gray-50">
-            <td class="p-2 border-r font-bold">#${p.numero_sequencial?.toString().padStart(3,'0') || 'S/N'}</td>
-            <td class="p-2 border-r">${p.data_criacao ? new Date(p.data_criacao.seconds*1000).toLocaleDateString() : '-'}</td>
-            <td class="p-2 border-r">${p.cliente_nome}</td>
-            <td class="p-2 border-r">${gerarBadgeStatus(p.status)}</td>
-            <td class="p-2 border-r">${window.formatarValorReais(p.valor_total)}</td>
-            <td class="p-2 border-r">${p.condicao_pagamento || 'Vista'}</td>
-            <td class="p-2 text-center">
-                <button onclick="window.abrirPedidoParaEdicao('${p.id}')" class="btn btn-dark btn-sm">
-                    👁️ Abrir
-                </button>
-            </td>
-        </tr>`).join('');
-}
-
 // ==========================================
-// FUNÇÃO PARA NOVO PEDIDO (VERSÃO CORRIGIDA: INICIA LIMPO)
+// FUNÇÃO PARA NOVO PEDIDO (VENCIMENTO AUTOMÁTICO 30 DIAS)
 // ==========================================
 window.novoPedido = function() {
     console.log('➕ Iniciando novo pedido - reset completo');
     
     bloquearCampos(false);
     document.getElementById('aviso-bloqueio').classList.add('hidden');
-    
     document.getElementById('pedido-id-atual').value = '';
     
     const selectCliente = document.getElementById('input-cliente');
@@ -920,6 +900,11 @@ window.novoPedido = function() {
     document.getElementById('input-previsao').value = '';
     document.getElementById('pdf-n-display').innerText = '';
     
+    // ATUALIZAÇÃO: Primeiro vencimento automático para 30 dias a partir de hoje
+    const hoje = new Date();
+    hoje.setDate(hoje.getDate() + 30);
+    document.getElementById('input-primeiro-vencimento').value = hoje.toISOString().split('T')[0];
+
     const btnSalvar = document.getElementById('btn-salvar');
     btnSalvar.innerHTML = '📦 Salvar Pedido';
     
@@ -977,20 +962,20 @@ async function salvarPedidoAtual() {
     }
     
     const statusAtual = document.getElementById('select-status')?.value || 'Orçamento';
-    const totalNovoPedido = parseFloat(document.getElementById('btn-gerar-pdf')?.getAttribute('data-total')?.replace(',','.') || '0');
+    const totalPedidoAtual = parseFloat(document.getElementById('btn-gerar-pdf')?.getAttribute('data-total')?.replace(',','.') || '0');
 
     // === TRAVA DE LIMITE DE CRÉDITO ===
     if (statusAtual === 'Produção') {
-        const creditoOk = window.verificarLimiteCredito(nomeCliente, totalNovoPedido);
+        const creditoOk = window.verificarLimiteCredito(nomeCliente, totalPedidoAtual);
         if (!creditoOk) return; // Cancela salvamento se ultrapassar o limite
     }
-    
+
     const dados = {
         cliente_nome: nomeCliente,
         cliente_id: cliente.id,
         cliente_endereco: cliente.endereco || '',
         status: statusAtual,
-        valor_total: totalNovoPedido,
+        valor_total: totalPedidoAtual,
         itens: []
     };
     
@@ -1219,10 +1204,17 @@ window.cancelarEdicaoCliente = function() {
 };
 
 // ==========================================
-// EXPORTA TODAS AS FUNÇÕES PARA USO GLOBAL
+// EXPORTA TODAS AS FUNÇÕES PARA USO GLOBAL (CORREÇÃO DATA)
 // ==========================================
 window.formatarValorReais = (v) => (parseFloat(v) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-window.formatarDataParaExibir = (d) => d ? new Date(d.seconds*1000).toLocaleDateString('pt-BR') : '-';
+window.formatarDataParaExibir = (d) => {
+    if (!d) return '-';
+    // Se for objeto do Firestore
+    if (d.seconds) return new Date(d.seconds * 1000).toLocaleDateString('pt-BR');
+    // Se for string de data
+    const date = new Date(d + 'T12:00:00');
+    return isNaN(date.getTime()) ? '-' : date.toLocaleDateString('pt-BR');
+};
 window.carregarMemoriaBanco = carregarMemoriaBanco;
 window.carregarDadosFinanceiros = carregarDadosFinanceiros;
 window.filtrarFinanceiro = filtrarFinanceiro;
